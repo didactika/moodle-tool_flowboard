@@ -105,7 +105,7 @@ const item = (node, redraw) => {
     heading.appendChild(remove);
 
     li.appendChild(heading);
-    li.appendChild(buildFieldsForm(node, meta, redraw));
+    li.appendChild(buildFieldsForm(node, meta, redraw, 'list'));
 
     const ports = meta.ports || ['out'];
     const sub = document.createElement('ol');

@@ -31,13 +31,14 @@ Feature: Managing flows
     Then I should see "Welcome teachers to the forum"
 
     And I click on "List" "button"
-    And I select "When something happens" from the "Start with" select
+    And I set the field "Start with" to "When something happens"
     And I click on "Add" "button"
     And I set the field "Event" to "\core\event\role_assigned"
     And I set the field "About" to "relateduserid"
-    And I select "Subscribe to matching forums" from the "After \"out\", add" select
+    And I set the field "After \"out\", add" to "Subscribe to matching forums"
     And I click on "Add" "button"
     And I set the field "Match" to "the activity's idnumber"
+    And I set the field "How" to "is exactly"
     And I set the field "Pattern" to "FORO-GEN"
     And I press "Publish"
     Then I should see "Welcome teachers to the forum"
@@ -48,7 +49,7 @@ Feature: Managing flows
     When I am on "Course 1" course homepage
     And I enrol "Terry Teacher" user as "Teacher"
     And I run all adhoc tasks
-    And I navigate to "Plugins > Admin tools > Flowboard > Flows" in site administration
+    And I visit "/admin/tool/flowboard/index.php"
     And I click on "History" "link" in the "Welcome teachers to the forum" "table_row"
     Then I should see "Succeeded"
     And I should see "Terry Teacher"

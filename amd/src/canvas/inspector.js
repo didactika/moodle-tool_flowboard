@@ -74,13 +74,17 @@ export const render = (root, redraw) => {
  * @param {Object} node
  * @param {Object} meta
  * @param {Function} redraw
+ * @param {string} namespace Which panel is drawing these fields — the canvas
+ *        inspector and the D12 list view both build the very same node's
+ *        fields at once (one of them merely hidden, not gone), so each needs
+ *        its own ids or the two would collide as duplicates in the same page.
  * @returns {HTMLElement}
  */
-export const buildFieldsForm = (node, meta, redraw) => {
+export const buildFieldsForm = (node, meta, redraw, namespace = 'inspector') => {
     const form = document.createElement('div');
 
     form.className = 'tool-flowboard-inspector__form';
-    (meta.config || []).forEach((field) => form.appendChild(fieldRow(node, field, redraw)));
+    (meta.config || []).forEach((field) => form.appendChild(fieldRow(node, field, redraw, namespace)));
 
     return form;
 };
@@ -92,9 +96,10 @@ export const buildFieldsForm = (node, meta, redraw) => {
  * @param {Object} node
  * @param {Object} field
  * @param {Function} redraw
+ * @param {string} namespace
  * @returns {HTMLElement}
  */
-const fieldRow = (node, field, redraw) => {
+const fieldRow = (node, field, redraw, namespace) => {
     const row = document.createElement('div');
 
     row.className = 'tool-flowboard-inspector__field';
@@ -102,7 +107,7 @@ const fieldRow = (node, field, redraw) => {
     const label = document.createElement('label');
 
     label.textContent = str(field.label) + (field.required ? ' *' : '');
-    label.setAttribute('for', `flowboard-field-${node.key}-${field.key}`);
+    label.setAttribute('for', `flowboard-field-${namespace}-${node.key}-${field.key}`);
     row.appendChild(label);
 
     const control = buildControl(node, field);
@@ -118,7 +123,7 @@ const fieldRow = (node, field, redraw) => {
         error.textContent = missing.length > 0 ? str('flow:error_required') : '';
     };
 
-    control.id = `flowboard-field-${node.key}-${field.key}`;
+    control.id = `flowboard-field-${namespace}-${node.key}-${field.key}`;
     control.addEventListener('input', () => {
         State.setNodeConfig(node.key, {...node.config, [field.key]: control.value});
         refreshError();
@@ -152,9 +157,10 @@ const buildControl = (node, field) => {
 
     if (field.type === 'select') {
         const select = document.createElement('select');
+        const entries = Object.entries(field.options || {});
 
         select.className = 'custom-select custom-select-sm';
-        Object.entries(field.options || {}).forEach(([optionValue, optionLabel]) => {
+        entries.forEach(([optionValue, optionLabel]) => {
             const option = document.createElement('option');
 
             option.value = optionValue;
@@ -162,6 +168,15 @@ const buildControl = (node, field) => {
             option.selected = optionValue === value;
             select.appendChild(option);
         });
+
+        // A <select> always shows some option selected, even one nobody
+        // chose — the browser defaults to the first. Leaving the node's own
+        // config empty until a real "change" fires would let a required
+        // field look filled in, and stay invalid, for as long as its
+        // already-displayed default happens to be the answer someone wants.
+        if (value === '' && entries.length > 0) {
+            State.setNodeConfig(node.key, {...node.config, [field.key]: entries[0][0]});
+        }
 
         return select;
     }

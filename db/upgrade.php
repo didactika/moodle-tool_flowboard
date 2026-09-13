@@ -48,5 +48,22 @@ function xmldb_tool_flowboard_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026091401, 'tool', 'flowboard');
     }
 
+    if ($oldversion < 2026091402) {
+        // MariaDB/MySQL's default collation folds punctuation and case as
+        // "variable weight" for uniqueness, so idnumbers like 'welcome!' and
+        // 'welcome?' collide in the unique index even though they are
+        // different bytes; Postgres already compares exact. Making the
+        // column itself case- and punctuation-sensitive on the mysql family
+        // matches what Postgres already does, so a site does not lose the
+        // ability to tell two idnumbers apart depending on which database it
+        // happens to run.
+        if ($DB->get_dbfamily() === 'mysql') {
+            $DB->execute("ALTER TABLE {tool_flowboard_flow}
+                MODIFY idnumber VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL");
+        }
+
+        upgrade_plugin_savepoint(true, 2026091402, 'tool', 'flowboard');
+    }
+
     return true;
 }
