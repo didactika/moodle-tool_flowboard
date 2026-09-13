@@ -28,7 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 $plugin->component = 'tool_flowboard';
 
 // Bumped on every change that needs an upgrade step. Format YYYYMMDDXX.
-$plugin->version = 2026091305;
+$plugin->version = 2026091401;
 
 // Moodle 4.5.0, expressed as core's own version number.
 $plugin->requires = 2024100700;

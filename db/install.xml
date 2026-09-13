@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="admin/tool/flowboard/db" VERSION="20260913" COMMENT="XMLDB file for Moodle admin/tool/flowboard"
+<XMLDB PATH="admin/tool/flowboard/db" VERSION="20260914" COMMENT="XMLDB file for Moodle admin/tool/flowboard"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../../lib/xmldb/xmldb.xsd"
 >
@@ -13,6 +13,7 @@
         <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="draft" SEQUENCE="false" COMMENT="draft, live or paused"/>
         <FIELD NAME="dryrun" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether this flow only says what it would have done"/>
         <FIELD NAME="currentversionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="The published version, null while the flow has never been published"/>
+        <FIELD NAME="draftgraph" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The canvas's own unpublished work, null while there is none. Never run; publishing freezes it into a new version and clears this."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>

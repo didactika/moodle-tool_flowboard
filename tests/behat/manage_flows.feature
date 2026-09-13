@@ -1,14 +1,14 @@
-@tool @tool_flowboard
+@tool @tool_flowboard @javascript
 Feature: Managing flows
   In order to automate what Moodle does when something happens
   As an administrator
-  I need to create a flow, publish it, and see what it has done
+  I need to draw a flow, publish it, and see what it has done
 
-  The flow list, the editor and the history screen are all plain links, forms
-  and tables — no custom JavaScript widget stands between a keyboard-only or
-  screen-reader visitor and any of them, which is the accessible editor phase
-  1 promises (D12): the visual canvas is a later phase's addition on top of
-  this, not a replacement for it.
+  The flow itself is drawn on a visual canvas, but the very same drawing can
+  be built and edited through a plain, keyboard-navigable outline instead —
+  the "List" view toggle switches between them without losing anything, which
+  is how this plugin meets D12 without the canvas and the accessible path
+  ever being two different flows.
 
   Background:
     Given the following "courses" exist:
@@ -23,16 +23,26 @@ Feature: Managing flows
     And I log in as "admin"
     And I navigate to "Plugins > Admin tools > Flowboard > Flows" in site administration
 
-  Scenario: Building a flow from the "role assigned" template and running it
-    When I click on "Somebody is given a role in a course" "link"
+  Scenario: Drawing a flow through the list view and running it
+    When I click on "New flow" "link"
     And I set the field "Name" to "Welcome teachers to the forum"
     And I set the field "Stable name" to "welcome-teachers"
-    And I set the field "Pattern" to "FORO-GEN"
     And I press "Save flow"
     Then I should see "Welcome teachers to the forum"
-    And I should see "needs: mod/forum:managesubscriptions"
 
-    When I click on "Make live" "link" in the "Welcome teachers to the forum" "table_row"
+    And I click on "List" "button"
+    And I select "When something happens" from the "Start with" select
+    And I click on "Add" "button"
+    And I set the field "Event" to "\core\event\role_assigned"
+    And I set the field "About" to "relateduserid"
+    And I select "Subscribe to matching forums" from the "After \"out\", add" select
+    And I click on "Add" "button"
+    And I set the field "Match" to "the activity's idnumber"
+    And I set the field "Pattern" to "FORO-GEN"
+    And I press "Publish"
+    Then I should see "Welcome teachers to the forum"
+
+    And I click on "Make live" "link" in the "Welcome teachers to the forum" "table_row"
     Then I should see "Live"
 
     When I am on "Course 1" course homepage

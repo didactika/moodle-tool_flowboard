@@ -48,6 +48,20 @@ final class event_catalogue {
     ];
 
     /**
+     * Every field `\core\event\base` itself always carries, whatever the
+     * event. Offered as a guided choice even for an event nobody has seen
+     * fire yet — `other`'s own contents are the one part that genuinely has
+     * to be learned (see {@see event_seen_repository}), but a flow does not
+     * have to be typed blind before that happens.
+     */
+    public const STANDARD_FIELDS = [
+        'userid', 'relateduserid', 'realuserid', 'courseid',
+        'contextid', 'contextinstanceid', 'contextlevel',
+        'objectid', 'objecttable', 'crud', 'edulevel',
+        'timecreated',
+    ];
+
+    /**
      * Every event on the site, by class name.
      *
      * @return array<string, array> Each entry: eventname, name, component,

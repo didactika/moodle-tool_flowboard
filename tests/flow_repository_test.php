@@ -128,7 +128,7 @@ final class flow_repository_test extends \advanced_testcase {
 
         $flow = flow_repository::create('one', 'One');
         graph_repository::publish((int) $flow->id, [
-            'nodes' => [['key' => 'a', 'type' => 'trigger_event', 'config' => []]],
+            'nodes' => [['key' => 'a', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']]],
             'edges' => [],
         ]);
 
@@ -137,5 +137,73 @@ final class flow_repository_test extends \advanced_testcase {
         $this->assertNull(flow_repository::get((int) $flow->id));
         $this->assertSame(0, $DB->count_records('tool_flowboard_version', ['flowid' => $flow->id]));
         $this->assertSame(0, $DB->count_records('tool_flowboard_node', ['flowid' => $flow->id]));
+    }
+
+    /**
+     * A flow with nothing drawn yet has no draft.
+     */
+    public function test_a_fresh_flow_has_no_draft(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $flow = flow_repository::create('one', 'One');
+
+        $this->assertNull(flow_repository::draft((int) $flow->id));
+    }
+
+    /**
+     * The canvas's own autosave is remembered exactly as it was drawn.
+     */
+    public function test_a_saved_draft_comes_back_as_it_was(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $flow = flow_repository::create('one', 'One');
+        $graph = [
+            'nodes' => [['key' => 'a', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']]],
+            'edges' => [],
+            'comments' => [['id' => 'c1', 'x' => 10, 'y' => 20, 'text' => 'remember why']],
+        ];
+
+        flow_repository::save_draft((int) $flow->id, $graph);
+
+        $this->assertSame($graph, flow_repository::draft((int) $flow->id));
+    }
+
+    /**
+     * Publishing is what a draft was for; there is nothing left to keep once
+     * its drawing is the published version.
+     */
+    public function test_publishing_clears_the_draft(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $flow = flow_repository::create('one', 'One');
+        flow_repository::save_draft((int) $flow->id, [
+            'nodes' => [['key' => 'a', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']]],
+            'edges' => [],
+        ]);
+
+        graph_repository::publish((int) $flow->id, [
+            'nodes' => [['key' => 'a', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']]],
+            'edges' => [],
+        ]);
+
+        $this->assertNull(flow_repository::draft((int) $flow->id));
+    }
+
+    /**
+     * A draft can be thrown away deliberately too, without publishing it.
+     */
+    public function test_a_draft_can_be_discarded_without_publishing(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $flow = flow_repository::create('one', 'One');
+        flow_repository::save_draft((int) $flow->id, ['nodes' => [], 'edges' => []]);
+
+        flow_repository::discard_draft((int) $flow->id);
+
+        $this->assertNull(flow_repository::draft((int) $flow->id));
     }
 }

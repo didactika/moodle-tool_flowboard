@@ -18,7 +18,6 @@ namespace tool_flowboard\output;
 
 use renderer_base;
 use tool_flowboard\local\flow\flow_repository;
-use tool_flowboard\local\flow\flow_templates;
 use tool_flowboard\local\run\run_repository;
 
 /**
@@ -52,7 +51,6 @@ class flow_list_page implements \renderable, \templatable {
             'rows' => $rows,
             'hasrows' => $rows !== [],
             'newurl' => (new \moodle_url('/admin/tool/flowboard/edit.php'))->out(false),
-            'templates' => $this->template_links(),
         ];
     }
 
@@ -84,25 +82,5 @@ class flow_list_page implements \renderable, \templatable {
             'pauseurl' => (new \moodle_url('/admin/tool/flowboard/index.php', $sesskeyed + ['action' => 'pause']))->out(false),
             'deleteurl' => (new \moodle_url('/admin/tool/flowboard/delete.php', ['id' => $flow->id]))->out(false),
         ];
-    }
-
-    /**
-     * The "start from a template" buttons — R1 to R4, ready in one click.
-     *
-     * @return array
-     */
-    private function template_links(): array {
-        $links = [];
-
-        foreach (flow_templates::all() as $template) {
-            $described = flow_templates::describe($template);
-            $links[] = [
-                'name' => $described['name'],
-                'description' => $described['description'],
-                'url' => (new \moodle_url('/admin/tool/flowboard/edit.php', ['template' => $template]))->out(false),
-            ];
-        }
-
-        return $links;
     }
 }

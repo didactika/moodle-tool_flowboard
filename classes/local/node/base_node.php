@@ -59,6 +59,59 @@ abstract class base_node {
     abstract public function run(flow_context $context, array $config): node_result;
 
     /**
+     * The shape of this node's own configuration, for the canvas to draw a
+     * form from without knowing anything about this particular kind of node.
+     *
+     * Each entry: `key` (the config key), `label` (a lang string key in
+     * `tool_flowboard`), `type` (`text`, `select`, `event` — a Moodle event
+     * class, or `eventfield` — a dotted path into the triggering event's own
+     * payload), `options` (for `select`, value => label) and `referenceable`
+     * (whether this field may hold a `{{event:...}}`/`{{context:...}}` token
+     * instead of a literal — see {@see \tool_flowboard\local\run\reference_resolver}).
+     *
+     * @return array
+     */
+    public static function config_schema(): array {
+        return [];
+    }
+
+    /**
+     * The ways out this kind of node draws on the canvas — {@see graph_repository}'s
+     * own port constants. A trigger or an action has one; a question about
+     * the run has two, and no edge may leave from any other.
+     *
+     * @return string[]
+     */
+    public static function ports(): array {
+        return ['out'];
+    }
+
+    /**
+     * The named values this node writes into {@see flow_context} for nodes
+     * further down the flow to read — what a `{{context:...}}` reference on a
+     * later node's config may point at.
+     *
+     * @return string[]
+     */
+    public static function produces(): array {
+        return [];
+    }
+
+    /**
+     * Whether this node's own configuration is one it could actually run
+     * with — checked when a flow is published, not only once it runs and
+     * fails. A reference (`{{event:...}}`/`{{context:...}}`) is never checked
+     * beyond being present: what it resolves to is only known at run time.
+     *
+     * @param array $config
+     * @return array<string, string> Config key => error message. Empty when
+     *         there is nothing wrong with it.
+     */
+    public static function validate_config(array $config): array {
+        return [];
+    }
+
+    /**
      * What a flow using this node has to be allowed to do.
      *
      * Declared per configuration, not per class: subscribing to a forum and

@@ -134,6 +134,117 @@ final class graph_repository_test extends \advanced_testcase {
     }
 
     /**
+     * A drawing with no trigger at all has nowhere to start from.
+     */
+    public function test_a_drawing_with_no_trigger_is_refused(): void {
+        $this->expectExceptionMessageMatches('/no trigger/');
+        graph_repository::publish((int) $this->flow->id, [
+            'nodes' => [['key' => 'a', 'type' => 'condition_payload', 'config' => ['field' => 'x', 'operator' => 'notempty']]],
+            'edges' => [],
+        ]);
+    }
+
+    /**
+     * A drawing with two triggers is ambiguous about where a run begins.
+     */
+    public function test_a_drawing_with_two_triggers_is_refused(): void {
+        $this->expectExceptionMessageMatches('/More than one trigger/');
+        graph_repository::publish((int) $this->flow->id, [
+            'nodes' => [
+                ['key' => 'a', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']],
+                ['key' => 'b', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\user_loggedin']],
+            ],
+            'edges' => [],
+        ]);
+    }
+
+    /**
+     * Nothing may connect into a trigger — a run always begins there.
+     */
+    public function test_an_edge_into_a_trigger_is_refused(): void {
+        $this->expectExceptionMessageMatches('/is a trigger/');
+        graph_repository::publish((int) $this->flow->id, [
+            'nodes' => [
+                ['key' => 'a', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']],
+                ['key' => 'b', 'type' => 'condition_payload', 'config' => ['field' => 'x', 'operator' => 'notempty']],
+            ],
+            'edges' => [
+                ['from' => 'a', 'port' => 'out', 'to' => 'b'],
+                ['from' => 'b', 'port' => 'true', 'to' => 'a'],
+            ],
+        ]);
+    }
+
+    /**
+     * An edge drawn from a port its own node does not have leads nowhere a
+     * run could ever take.
+     */
+    public function test_an_edge_from_an_unknown_port_is_refused(): void {
+        $this->expectExceptionMessageMatches('/no way out called "maybe"/');
+        graph_repository::publish((int) $this->flow->id, [
+            'nodes' => [
+                ['key' => 'a', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']],
+                ['key' => 'b', 'type' => 'condition_payload', 'config' => ['field' => 'x', 'operator' => 'notempty']],
+            ],
+            'edges' => [['from' => 'b', 'port' => 'maybe', 'to' => 'a']],
+        ]);
+    }
+
+    /**
+     * A node type nobody has (a plugin removed since the canvas last
+     * offered it) is refused rather than silently accepted and left to fail
+     * only once a run actually reaches it.
+     */
+    public function test_a_node_of_an_unknown_type_is_refused(): void {
+        $this->expectExceptionMessageMatches('/does not have/');
+        graph_repository::publish((int) $this->flow->id, [
+            'nodes' => [['key' => 'a', 'type' => 'something_removed', 'config' => []]],
+            'edges' => [],
+        ]);
+    }
+
+    /**
+     * Every node's own configuration is checked, and every problem is
+     * reported together rather than one at a time.
+     */
+    public function test_every_nodes_own_problems_are_reported_together(): void {
+        try {
+            graph_repository::publish((int) $this->flow->id, [
+                'nodes' => [
+                    ['key' => 'trigger', 'type' => 'trigger_event', 'config' => []],
+                    ['key' => 'check', 'type' => 'condition_payload', 'config' => ['operator' => 'equals']],
+                ],
+                'edges' => [['from' => 'trigger', 'port' => 'out', 'to' => 'check']],
+            ]);
+            $this->fail('An invalid drawing must be refused.');
+        } catch (\moodle_exception $e) {
+            $this->assertStringContainsString('"trigger"', $e->getMessage());
+            $this->assertStringContainsString('"check"', $e->getMessage());
+        }
+    }
+
+    /**
+     * A config value that is a mapped reference is not checked against the
+     * shape a literal would have to be — it cannot be, until a run resolves
+     * it — so a flow using one publishes cleanly.
+     */
+    public function test_a_mapped_reference_is_not_checked_as_a_literal(): void {
+        $versionid = graph_repository::publish((int) $this->flow->id, [
+            'nodes' => [
+                ['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']],
+                [
+                    'key' => 'subscribe',
+                    'type' => 'action_forum_subscribe',
+                    'config' => ['match' => 'name', 'operator' => 'contains', 'pattern' => '{{event:other.forumname}}'],
+                ],
+            ],
+            'edges' => [['from' => 'trigger', 'port' => 'out', 'to' => 'subscribe']],
+        ]);
+
+        $this->assertGreaterThan(0, $versionid);
+    }
+
+    /**
      * A small flow: an event, a question about it, and something to do.
      *
      * @return array
@@ -156,7 +267,7 @@ final class graph_repository_test extends \advanced_testcase {
                 [
                     'key' => 'subscribe',
                     'type' => 'action_forum_subscribe',
-                    'config' => ['match' => 'name', 'pattern' => 'Welcome'],
+                    'config' => ['match' => 'name', 'operator' => 'contains', 'pattern' => 'Welcome'],
                     'position' => ['x' => 0, 'y' => 240],
                 ],
             ],

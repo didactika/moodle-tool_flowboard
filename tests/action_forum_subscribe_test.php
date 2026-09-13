@@ -264,4 +264,48 @@ final class action_forum_subscribe_test extends \advanced_testcase {
 
         parent::tearDown();
     }
+
+    /**
+     * A complete configuration has nothing wrong with it.
+     */
+    public function test_a_complete_configuration_is_valid(): void {
+        $errors = action_forum_subscribe::validate_config(['match' => 'name', 'operator' => 'contains', 'pattern' => 'x']);
+
+        $this->assertSame([], $errors);
+    }
+
+    /**
+     * A match field, an operator and a pattern nobody recognises are each
+     * their own problem.
+     */
+    public function test_unrecognised_choices_are_each_their_own_problem(): void {
+        $errors = action_forum_subscribe::validate_config(['match' => 'whatever', 'operator' => 'whatever', 'pattern' => '']);
+
+        $this->assertArrayHasKey('match', $errors);
+        $this->assertArrayHasKey('operator', $errors);
+        $this->assertArrayHasKey('pattern', $errors);
+    }
+
+    /**
+     * A regular expression PCRE cannot parse is refused before it ever runs.
+     */
+    public function test_an_invalid_regex_pattern_is_refused(): void {
+        $errors = action_forum_subscribe::validate_config(['match' => 'name', 'operator' => 'regex', 'pattern' => '[']);
+
+        $this->assertArrayHasKey('pattern', $errors);
+    }
+
+    /**
+     * A pattern mapped from an earlier field cannot be checked for shape
+     * until a run resolves it, so it is not flagged as invalid.
+     */
+    public function test_a_mapped_pattern_is_not_checked_for_shape(): void {
+        $errors = action_forum_subscribe::validate_config([
+            'match' => 'name',
+            'operator' => 'regex',
+            'pattern' => '{{event:other.pattern}}',
+        ]);
+
+        $this->assertArrayNotHasKey('pattern', $errors);
+    }
 }

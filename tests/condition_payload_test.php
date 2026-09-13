@@ -122,4 +122,49 @@ final class condition_payload_test extends \advanced_testcase {
 
         $this->assertFalse($result->summary()['matched']);
     }
+
+    /**
+     * A complete configuration has nothing wrong with it.
+     */
+    public function test_a_complete_configuration_is_valid(): void {
+        $errors = condition_payload::validate_config(['field' => 'other.state', 'operator' => 'equals', 'value' => 'OPEN']);
+
+        $this->assertSame([], $errors);
+    }
+
+    /**
+     * "empty" and "notempty" need no value; every other operator does.
+     */
+    public function test_empty_and_notempty_need_no_value(): void {
+        $this->assertSame([], condition_payload::validate_config(['field' => 'x', 'operator' => 'empty']));
+        $this->assertSame([], condition_payload::validate_config(['field' => 'x', 'operator' => 'notempty']));
+        $this->assertArrayHasKey('value', condition_payload::validate_config(['field' => 'x', 'operator' => 'equals']));
+    }
+
+    /**
+     * A missing field, an operator nobody defined, and a missing value are
+     * each their own problem.
+     */
+    public function test_every_missing_piece_is_its_own_problem(): void {
+        $errors = condition_payload::validate_config(['field' => '', 'operator' => 'whatever', 'value' => '']);
+
+        $this->assertArrayHasKey('field', $errors);
+        $this->assertArrayHasKey('operator', $errors);
+        $this->assertArrayHasKey('value', $errors);
+    }
+
+    /**
+     * A value mapped from an earlier field is not required to be non-empty
+     * as typed — it is not empty once resolved, which is all that can be
+     * checked before a run.
+     */
+    public function test_a_mapped_value_is_not_flagged_as_missing(): void {
+        $errors = condition_payload::validate_config([
+            'field' => 'x',
+            'operator' => 'equals',
+            'value' => '{{context:courseid}}',
+        ]);
+
+        $this->assertArrayNotHasKey('value', $errors);
+    }
 }

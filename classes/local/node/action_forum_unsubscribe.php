@@ -20,6 +20,7 @@ use mod_forum\subscriptions;
 use tool_flowboard\local\flow\flow_context;
 use tool_flowboard\local\matching\forum_matcher;
 use tool_flowboard\local\matching\pattern_matcher;
+use tool_flowboard\local\run\reference_resolver;
 
 /**
  * Unsubscribes the run's subject from the forums of a course that match a
@@ -84,6 +85,66 @@ class action_forum_unsubscribe extends base_node {
      */
     public static function required_capabilities(array $config): array {
         return ['mod/forum:managesubscriptions'];
+    }
+
+    /**
+     * Which forums to unsubscribe from, matched by name or idnumber against a
+     * pattern — the pattern may itself be mapped from an earlier field.
+     *
+     * @return array
+     */
+    public static function config_schema(): array {
+        return [
+            ['key' => 'match', 'label' => 'flow:matchfield', 'type' => 'select', 'required' => true, 'options' => [
+                forum_matcher::FIELD_NAME => 'flow:matchfield_name',
+                forum_matcher::FIELD_IDNUMBER => 'flow:matchfield_idnumber',
+            ]],
+            ['key' => 'operator', 'label' => 'flow:matchoperator', 'type' => 'select', 'required' => true, 'options' => [
+                pattern_matcher::OPERATOR_EXACT => 'flow:operator_exact',
+                pattern_matcher::OPERATOR_CONTAINS => 'flow:operator_contains',
+                pattern_matcher::OPERATOR_STARTSWITH => 'flow:operator_startswith',
+                pattern_matcher::OPERATOR_REGEX => 'flow:operator_regex',
+            ]],
+            ['key' => 'pattern', 'label' => 'flow:pattern', 'type' => 'text', 'referenceable' => true, 'required' => true],
+        ];
+    }
+
+    /**
+     * A real match field, a real operator, and a pattern that operator can
+     * actually use.
+     *
+     * @param array $config
+     * @return array<string, string>
+     */
+    public static function validate_config(array $config): array {
+        $errors = [];
+        $match = (string) ($config['match'] ?? '');
+        $operator = (string) ($config['operator'] ?? '');
+        $pattern = $config['pattern'] ?? '';
+
+        if (!in_array($match, [forum_matcher::FIELD_NAME, forum_matcher::FIELD_IDNUMBER], true)) {
+            $errors['match'] = get_string('flow:error_required', 'tool_flowboard');
+        }
+
+        if (!in_array($operator, pattern_matcher::operators(), true)) {
+            $errors['operator'] = get_string('flow:error_required', 'tool_flowboard');
+        }
+
+        if (reference_resolver::is_reference($pattern)) {
+            return $errors;
+        }
+
+        $pattern = trim((string) $pattern);
+
+        if ($pattern === '') {
+            $errors['pattern'] = get_string('flow:error_required', 'tool_flowboard');
+        } else if (!pattern_matcher::is_valid_pattern($operator, $pattern)) {
+            $errors['pattern'] = $operator === pattern_matcher::OPERATOR_REGEX
+                ? get_string('flow:error_invalidregex', 'tool_flowboard')
+                : get_string('flow:error_invalidpattern', 'tool_flowboard');
+        }
+
+        return $errors;
     }
 
     /**

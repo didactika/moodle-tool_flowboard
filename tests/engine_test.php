@@ -86,13 +86,13 @@ final class engine_test extends \advanced_testcase {
             'nodes' => [[
                 'key' => 'trigger',
                 'type' => 'trigger_event',
-                'config' => ['eventname' => '\some\event', 'subject' => 'userid'],
+                'config' => ['eventname' => '\core\event\course_viewed', 'subject' => 'userid'],
             ]],
             'edges' => [],
         ]);
 
         $runid = engine::run($flow, $versionid, [
-            'eventname' => '\some\event',
+            'eventname' => '\core\event\course_viewed',
             'userid' => (int) $actor->id,
             'relateduserid' => (int) $this->student->id,
         ]);
@@ -113,12 +113,12 @@ final class engine_test extends \advanced_testcase {
             'nodes' => [[
                 'key' => 'trigger',
                 'type' => 'trigger_event',
-                'config' => ['eventname' => '\some\event', 'subject' => 'relateduserid'],
+                'config' => ['eventname' => '\core\event\course_viewed', 'subject' => 'relateduserid'],
             ]],
             'edges' => [],
         ]);
 
-        $runid = engine::run($flow, $versionid, ['eventname' => '\some\event', 'userid' => 5]);
+        $runid = engine::run($flow, $versionid, ['eventname' => '\core\event\course_viewed', 'userid' => 5]);
 
         $this->assertSame(run_repository::STATUS_SKIPPED, run_repository::get($runid)->status);
         $this->assertSame('nosubject', json_decode(
@@ -130,15 +130,28 @@ final class engine_test extends \advanced_testcase {
     /**
      * A flow drawn against a node that no longer exists fails where somebody
      * will see it, instead of doing nothing quietly.
+     *
+     * Publishing a graph like this is refused outright these days — this is
+     * what happens to one published while the node's own plugin still
+     * existed, which nothing here can un-publish after the fact.
      */
     public function test_a_node_that_no_longer_exists_fails_loudly(): void {
+        global $DB;
+
         [$flow, $versionid] = $this->a_flow([
             'nodes' => [
-                ['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\some\event']],
-                ['key' => 'gone', 'type' => 'action_from_a_plugin_since_removed', 'config' => []],
+                ['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']],
+                ['key' => 'gone', 'type' => 'condition_payload', 'config' => ['field' => 'userid', 'operator' => 'notempty']],
             ],
             'edges' => [['from' => 'trigger', 'port' => 'out', 'to' => 'gone']],
         ]);
+
+        $DB->set_field(
+            'tool_flowboard_node',
+            'type',
+            'action_from_a_plugin_since_removed',
+            ['versionid' => $versionid, 'nodekey' => 'gone']
+        );
 
         $runid = engine::run($flow, $versionid, $this->event('OPEN_STARTED'));
         $nodes = array_values(run_repository::nodes($runid));
@@ -149,12 +162,28 @@ final class engine_test extends \advanced_testcase {
 
     /**
      * A drawing with no starting point cannot be run, and says so.
+     *
+     * Publishing one like this is refused outright these days — this is what
+     * happens to a flow whose own trigger's plugin disappeared after it was
+     * published, which nothing here can un-publish after the fact.
      */
     public function test_a_drawing_with_no_starting_point_fails(): void {
+        global $DB;
+
         [$flow, $versionid] = $this->a_flow([
-            'nodes' => [['key' => 'check', 'type' => 'condition_payload', 'config' => []]],
-            'edges' => [],
+            'nodes' => [
+                ['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']],
+                ['key' => 'check', 'type' => 'condition_payload', 'config' => ['field' => 'userid', 'operator' => 'notempty']],
+            ],
+            'edges' => [['from' => 'trigger', 'port' => 'out', 'to' => 'check']],
         ]);
+
+        $DB->set_field(
+            'tool_flowboard_node',
+            'type',
+            'condition_payload',
+            ['versionid' => $versionid, 'nodekey' => 'trigger']
+        );
 
         $runid = engine::run($flow, $versionid, $this->event('OPEN_STARTED'));
 
@@ -169,7 +198,7 @@ final class engine_test extends \advanced_testcase {
     public function test_a_drawing_that_loops_is_stopped(): void {
         [$flow, $versionid] = $this->a_flow([
             'nodes' => [
-                ['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\some\event']],
+                ['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']],
                 ['key' => 'check', 'type' => 'condition_payload', 'config' => ['field' => 'userid', 'operator' => 'notempty']],
             ],
             'edges' => [
@@ -200,6 +229,33 @@ final class engine_test extends \advanced_testcase {
     }
 
     /**
+     * A preview walks a drawing that was never published at all, and writes
+     * nothing down — it says which port each node left by, not why.
+     */
+    public function test_a_preview_walks_an_unpublished_drawing_and_writes_nothing_down(): void {
+        global $DB;
+
+        $visited = engine::preview($this->graph(), $this->event('OPEN_STARTED'));
+
+        $this->assertSame(['trigger', 'check', 'after'], array_keys($visited));
+        $this->assertSame('out', $visited['trigger']['port']);
+        $this->assertSame('true', $visited['check']['port']);
+        $this->assertSame(0, $DB->count_records('tool_flowboard_run'), 'A preview is not a run.');
+        $this->assertSame(0, $DB->count_records('tool_flowboard_run_node'));
+    }
+
+    /**
+     * A preview follows a condition exactly as a real run would: the wrong
+     * way out is a dead end, not a continuation.
+     */
+    public function test_a_preview_stops_where_a_condition_says_no(): void {
+        $visited = engine::preview($this->graph(), $this->event('FINISHED'));
+
+        $this->assertSame('false', $visited['check']['port']);
+        $this->assertArrayNotHasKey('after', $visited, 'Nothing is drawn from the false port in this graph.');
+    }
+
+    /**
      * A published flow to run.
      *
      * @param array $graph
@@ -223,7 +279,7 @@ final class engine_test extends \advanced_testcase {
                 [
                     'key' => 'trigger',
                     'type' => 'trigger_event',
-                    'config' => ['eventname' => '\some\event', 'subject' => 'relateduserid'],
+                    'config' => ['eventname' => '\core\event\course_viewed', 'subject' => 'relateduserid'],
                 ],
                 [
                     'key' => 'check',
@@ -251,7 +307,7 @@ final class engine_test extends \advanced_testcase {
      */
     private function event(string $state): array {
         return [
-            'eventname' => '\some\event',
+            'eventname' => '\core\event\course_viewed',
             'userid' => 2,
             'relateduserid' => (int) $this->student->id,
             'courseid' => 7,

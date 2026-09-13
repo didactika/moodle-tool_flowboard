@@ -47,7 +47,7 @@ final class run_repository_test extends \advanced_testcase {
 
         $this->flow = flow_repository::create('welcome-forums', 'Welcome to the forums');
         $this->versionid = graph_repository::publish((int) $this->flow->id, [
-            'nodes' => [['key' => 'trigger', 'type' => 'trigger_event', 'config' => []]],
+            'nodes' => [['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']]],
             'edges' => [],
         ]);
     }
@@ -100,7 +100,11 @@ final class run_repository_test extends \advanced_testcase {
         $runid = run_repository::start($this->flow, $this->versionid);
 
         graph_repository::publish((int) $this->flow->id, [
-            'nodes' => [['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['changed' => true]]],
+            'nodes' => [[
+                'key' => 'trigger',
+                'type' => 'trigger_event',
+                'config' => ['eventname' => '\core\event\course_viewed', 'changed' => true],
+            ]],
             'edges' => [],
         ]);
 
@@ -151,5 +155,42 @@ final class run_repository_test extends \advanced_testcase {
 
         $this->assertSame(0, run_repository::purge_older_than(0));
         $this->assertNotNull(run_repository::get($old));
+    }
+
+    /**
+     * A node's live status is how many times it succeeded, failed or was
+     * skipped recently — the canvas's badge, counted once rather than once
+     * per node.
+     */
+    public function test_node_stats_counts_by_node_and_outcome(): void {
+        global $DB;
+
+        $first = run_repository::start($this->flow, $this->versionid);
+        run_repository::record_node($first, 'trigger', 'trigger_event', 'ok');
+        run_repository::record_node($first, 'subscribe', 'action_forum_subscribe', 'ok');
+
+        $second = run_repository::start($this->flow, $this->versionid);
+        run_repository::record_node($second, 'trigger', 'trigger_event', 'ok');
+        run_repository::record_node($second, 'subscribe', 'action_forum_subscribe', 'failed');
+
+        $stats = run_repository::node_stats((int) $this->flow->id, 7);
+
+        $this->assertSame(['ok' => 2, 'failed' => 0, 'skipped' => 0], $stats['trigger']);
+        $this->assertSame(['ok' => 1, 'failed' => 1, 'skipped' => 0], $stats['subscribe']);
+    }
+
+    /**
+     * A run from before the window it asks about does not count towards it.
+     */
+    public function test_node_stats_ignores_runs_outside_the_window(): void {
+        global $DB;
+
+        $old = run_repository::start($this->flow, $this->versionid);
+        run_repository::record_node($old, 'trigger', 'trigger_event', 'ok');
+        $DB->set_field('tool_flowboard_run', 'timestarted', time() - (10 * DAYSECS), ['id' => $old]);
+
+        $stats = run_repository::node_stats((int) $this->flow->id, 7);
+
+        $this->assertSame([], $stats);
     }
 }

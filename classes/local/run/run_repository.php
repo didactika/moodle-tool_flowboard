@@ -218,4 +218,39 @@ final class run_repository {
 
         return count($runids);
     }
+
+    /**
+     * How each node of a flow has been doing lately — the canvas's "live
+     * status" badge, one query rather than one per node.
+     *
+     * @param int $flowid
+     * @param int $days How far back to look.
+     * @return array<string, array{ok: int, failed: int, skipped: int}> Keyed
+     *         by node key; a node never run at all is simply absent.
+     */
+    public static function node_stats(int $flowid, int $days = 7): array {
+        global $DB;
+
+        $since = time() - ($days * DAYSECS);
+        $sql = "SELECT rn.nodekey, rn.status, COUNT(*) AS total
+                  FROM {" . self::NODE_TABLE . "} rn
+                  JOIN {" . self::TABLE . "} r ON r.id = rn.runid
+                 WHERE r.flowid = :flowid AND r.timestarted >= :since
+              GROUP BY rn.nodekey, rn.status";
+
+        $stats = [];
+        $rows = $DB->get_recordset_sql($sql, ['flowid' => $flowid, 'since' => $since]);
+
+        foreach ($rows as $row) {
+            $stats[$row->nodekey] ??= ['ok' => 0, 'failed' => 0, 'skipped' => 0];
+
+            if (isset($stats[$row->nodekey][$row->status])) {
+                $stats[$row->nodekey][$row->status] = (int) $row->total;
+            }
+        }
+
+        $rows->close();
+
+        return $stats;
+    }
 }

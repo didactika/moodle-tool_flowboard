@@ -104,4 +104,41 @@ final class node_registry_test extends \advanced_testcase {
 
         $this->assertSame([], node_registry::capabilities_for($nodes));
     }
+
+    /**
+     * A node type's schema is what the canvas builds its inspector panel
+     * from: its own config fields, and what it leaves behind for later nodes.
+     */
+    public function test_a_schema_names_the_configuration_and_what_it_produces(): void {
+        $this->resetAfterTest();
+
+        $schema = node_registry::schema_for(trigger_event::TYPE);
+
+        $this->assertSame(['subjectid', 'courseid', 'contextid'], $schema['produces']);
+        $this->assertSame(['out'], $schema['ports']);
+        $this->assertSame('eventname', $schema['config'][0]['key']);
+        $this->assertTrue($schema['config'][0]['required'], 'The event itself is not optional.');
+        $this->assertSame('subject', $schema['config'][1]['key']);
+        $this->assertFalse($schema['config'][1]['required'], 'The subject falls back to relateduserid on its own.');
+    }
+
+    /**
+     * A question about the event draws two ways out, not one.
+     */
+    public function test_a_condition_has_two_ports(): void {
+        $this->resetAfterTest();
+
+        $this->assertSame(['true', 'false'], node_registry::schema_for(condition_payload::TYPE)['ports']);
+    }
+
+    /**
+     * A node type nobody recognises has no schema at all, rather than one
+     * full of nothing — there is a real difference between "produces
+     * nothing" and "does not exist".
+     */
+    public function test_an_unknown_type_has_no_schema(): void {
+        $this->resetAfterTest();
+
+        $this->assertNull(node_registry::schema_for('something_removed'));
+    }
 }

@@ -155,8 +155,8 @@ final class actor_provisioner_test extends \advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
 
-        $first = flow_repository::create('Welcome!', 'First');
-        $second = flow_repository::create('welcome!', 'Second');
+        $first = flow_repository::create('welcome!', 'First');
+        $second = flow_repository::create('welcome?', 'Second');
 
         graph_repository::publish((int) $first->id, $this->forum_flow_graph());
         graph_repository::publish((int) $second->id, $this->forum_flow_graph());
@@ -279,7 +279,7 @@ final class actor_provisioner_test extends \advanced_testcase {
 
         $flow = flow_repository::create('just-a-trigger', 'Just a trigger');
         graph_repository::publish((int) $flow->id, [
-            'nodes' => [['key' => 'trigger', 'type' => 'trigger_event', 'config' => []]],
+            'nodes' => [['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']]],
             'edges' => [],
         ]);
 
@@ -300,7 +300,7 @@ final class actor_provisioner_test extends \advanced_testcase {
                 [
                     'key' => 'trigger',
                     'type' => 'trigger_event',
-                    'config' => ['eventname' => '\local_coursestate\event\course_started', 'subject' => 'userid'],
+                    'config' => ['eventname' => '\core\event\course_viewed', 'subject' => 'userid'],
                 ],
                 [
                     'key' => 'subscribe',

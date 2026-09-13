@@ -16,6 +16,7 @@
 
 namespace tool_flowboard\local\node;
 
+use tool_flowboard\local\event\event_catalogue;
 use tool_flowboard\local\flow\flow_context;
 
 /**
@@ -71,6 +72,48 @@ class trigger_event extends base_node {
     }
 
     /**
+     * The event to listen for, and which of its own fields names who the run
+     * is about — any field the event carries, not only the two Moodle itself
+     * happens to call `userid`/`relateduserid`.
+     *
+     * @return array
+     */
+    public static function config_schema(): array {
+        return [
+            ['key' => 'eventname', 'label' => 'flow:eventname', 'type' => 'event', 'required' => true],
+            ['key' => 'subject', 'label' => 'flow:subject', 'type' => 'eventfield', 'required' => false],
+        ];
+    }
+
+    /**
+     * What every downstream node may read once this one has run.
+     *
+     * @return string[]
+     */
+    public static function produces(): array {
+        return ['subjectid', 'courseid', 'contextid'];
+    }
+
+    /**
+     * An event this site can actually fire, named exactly.
+     *
+     * @param array $config
+     * @return array<string, string>
+     */
+    public static function validate_config(array $config): array {
+        $errors = [];
+        $eventname = trim((string) ($config['eventname'] ?? ''));
+
+        if ($eventname === '') {
+            $errors['eventname'] = get_string('flow:error_required', 'tool_flowboard');
+        } else if (!event_catalogue::exists($eventname)) {
+            $errors['eventname'] = get_string('flow:error_unknownevent', 'tool_flowboard');
+        }
+
+        return $errors;
+    }
+
+    /**
      * Takes the event apart into the things the rest of the flow works with.
      *
      * @param flow_context $context
@@ -79,11 +122,11 @@ class trigger_event extends base_node {
      */
     public function run(flow_context $context, array $config): node_result {
         $event = $context->event();
-        $field = ($config['subject'] ?? self::SUBJECT_RELATED) === self::SUBJECT_ACTOR
-            ? self::SUBJECT_ACTOR
+        $field = trim((string) ($config['subject'] ?? '')) !== ''
+            ? (string) $config['subject']
             : self::SUBJECT_RELATED;
 
-        $subject = (int) ($event[$field] ?? 0);
+        $subject = (int) ($context->event_field($field) ?? 0);
 
         if ($subject === 0) {
             // The flow was told to act on somebody the event does not name.

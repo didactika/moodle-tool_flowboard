@@ -17,6 +17,7 @@
 namespace tool_flowboard;
 
 use mod_forum\subscriptions;
+use tool_flowboard\local\actor\actor_provisioner;
 use tool_flowboard\local\run\engine;
 use tool_flowboard\local\flow\flow_repository;
 use tool_flowboard\local\flow\graph_repository;
@@ -142,7 +143,7 @@ final class course_state_flows_test extends \advanced_testcase {
      */
     private function r1_flow(): array {
         $flow = flow_repository::create('r1-welcome-forums', 'Welcome to the forums');
-        $versionid = graph_repository::publish((int) $flow->id, [
+        $versionid = $this->publish_raw((int) $flow->id, [
             'nodes' => [
                 [
                     'key' => 'trigger',
@@ -172,7 +173,7 @@ final class course_state_flows_test extends \advanced_testcase {
      */
     private function r2_flow(): array {
         $flow = flow_repository::create('r2-state-changed', 'Leave the forums on state change');
-        $versionid = graph_repository::publish((int) $flow->id, [
+        $versionid = $this->publish_raw((int) $flow->id, [
             'nodes' => [
                 [
                     'key' => 'trigger',
@@ -198,6 +199,59 @@ final class course_state_flows_test extends \advanced_testcase {
         flow_repository::set_status((int) $flow->id, flow_repository::STATUS_LIVE);
 
         return [flow_repository::get((int) $flow->id), $versionid];
+    }
+
+    /**
+     * Publishes a graph the way {@see graph_repository::publish()} always
+     * has, without its one check this file cannot satisfy: that the
+     * triggering event exists on this site. R1 and R2 are drawn against
+     * `local_coursestate`'s own events on purpose — that plugin is not
+     * installed here, on a site that really ran this flow it would be, and
+     * this file is about the engine's own behaviour, not the catalogue.
+     *
+     * @param int $flowid
+     * @param array $graph
+     * @return int The new version's id.
+     */
+    private function publish_raw(int $flowid, array $graph): int {
+        global $DB, $USER;
+
+        $versionid = $DB->insert_record('tool_flowboard_version', (object) [
+            'flowid' => $flowid,
+            'versionnumber' => 1,
+            'graph' => json_encode($graph),
+            'note' => null,
+            'timecreated' => time(),
+            'usermodified' => (int) $USER->id,
+        ]);
+
+        $sortorder = 0;
+
+        foreach ($graph['nodes'] as $node) {
+            $DB->insert_record('tool_flowboard_node', (object) [
+                'flowid' => $flowid,
+                'versionid' => $versionid,
+                'nodekey' => $node['key'],
+                'type' => $node['type'],
+                'config' => json_encode($node['config'] ?? []),
+                'sortorder' => $sortorder++,
+            ]);
+        }
+
+        foreach ($graph['edges'] as $edge) {
+            $DB->insert_record('tool_flowboard_edge', (object) [
+                'flowid' => $flowid,
+                'versionid' => $versionid,
+                'fromnode' => $edge['from'],
+                'fromport' => $edge['port'] ?? graph_repository::PORT_OUT,
+                'tonode' => $edge['to'],
+            ]);
+        }
+
+        flow_repository::set_current_version($flowid, $versionid);
+        actor_provisioner::ensure_for_version($flowid, $versionid);
+
+        return $versionid;
     }
 
     /**

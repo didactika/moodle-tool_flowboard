@@ -34,7 +34,8 @@ use tool_flowboard\output\run_history_page;
  */
 final class flow_list_page_test extends \advanced_testcase {
     /**
-     * An empty site still draws a page, with the four templates offered.
+     * An empty site still draws a page, with nothing but the invitation to
+     * build a flow.
      */
     public function test_an_empty_list_still_draws(): void {
         global $OUTPUT, $PAGE;
@@ -48,7 +49,7 @@ final class flow_list_page_test extends \advanced_testcase {
         $html = $output->render_from_template('tool_flowboard/flow_list', $page->export_for_template($output));
 
         $this->assertStringContainsString(get_string('flow:none', 'tool_flowboard'), $html);
-        $this->assertStringContainsString(get_string('template:r1', 'tool_flowboard'), $html);
+        $this->assertStringContainsString(get_string('flow:new', 'tool_flowboard'), $html);
         $this->assert_no_complaints($html);
     }
 

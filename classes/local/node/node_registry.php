@@ -144,6 +144,28 @@ final class node_registry {
     }
 
     /**
+     * What the canvas needs to draw and offer one kind of node: its own
+     * configuration fields, and what it leaves behind for nodes after it.
+     *
+     * @param string $type
+     * @return array{config: array, produces: string[]}|null Null where the
+     *         type does not exist.
+     */
+    public static function schema_for(string $type): ?array {
+        $class = self::all()[$type] ?? null;
+
+        if ($class === null) {
+            return null;
+        }
+
+        return [
+            'config' => $class::config_schema(),
+            'produces' => $class::produces(),
+            'ports' => $class::ports(),
+        ];
+    }
+
+    /**
      * Forgets what it found, so that a test installing a node mid-run sees it.
      */
     public static function reset(): void {

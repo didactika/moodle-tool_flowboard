@@ -180,7 +180,8 @@ final class engine {
         $started = microtime(true);
 
         try {
-            $result = $implementation->run($context, $node->config ?? []);
+            $config = reference_resolver::resolve($node->config ?? [], $context);
+            $result = $implementation->run($context, $config);
         } catch (\Throwable $e) {
             run_repository::record_node(
                 $runid,
@@ -206,6 +207,122 @@ final class engine {
         );
 
         return $result;
+    }
+
+    /**
+     * Walks a drawing that has not been published — and never will be by
+     * this — against one event, and says which port every node visited left
+     * by. This is what lights up the path in the canvas's "probar" button.
+     *
+     * Nothing here is written down: no run, no run_node, no history at all.
+     * A preview is not something that happened; it is a question about what
+     * would.
+     *
+     * @param array $graph nodes and edges, straight from the canvas's own
+     *        drawing — not yet a version, so not read from the database.
+     * @param array $event A recorded or synthesised sample.
+     * @return array<string, array{status: string, port: ?string, summary: array, error: ?string}>
+     *         Keyed by node key, in the order each was visited.
+     */
+    public static function preview(array $graph, array $event): array {
+        $context = new flow_context((object) ['dryrun' => 1], $event, true);
+        $nodes = self::as_node_rows($graph['nodes'] ?? []);
+        $edges = self::as_edge_rows($graph['edges'] ?? []);
+        $current = self::entry_point($nodes);
+        $visited = [];
+        $steps = 0;
+
+        while ($current !== null && isset($nodes[$current])) {
+            if (++$steps > self::MAX_STEPS) {
+                break;
+            }
+
+            $node = $nodes[$current];
+            $implementation = node_registry::get($node->type);
+
+            if ($implementation === null) {
+                $visited[$current] = ['status' => 'failed', 'port' => null, 'summary' => [], 'error' => 'unknownnodetype'];
+
+                break;
+            }
+
+            try {
+                $config = reference_resolver::resolve($node->config ?? [], $context);
+                $result = $implementation->run($context, $config);
+            } catch (\Throwable $e) {
+                $visited[$current] = ['status' => 'failed', 'port' => null, 'summary' => [], 'error' => $e->getMessage()];
+
+                break;
+            }
+
+            $visited[$current] = [
+                'status' => $result->stops() ? 'stopped' : 'ok',
+                'port' => $result->port(),
+                'summary' => $result->summary(),
+                'error' => null,
+            ];
+
+            if ($result->stops()) {
+                break;
+            }
+
+            $current = self::next($edges, $current, $result->port());
+        }
+
+        return $visited;
+    }
+
+    /**
+     * A drawing's own node list, shaped the way {@see self::entry_point()}
+     * and node lookups expect: an object per node, keyed by its own key.
+     *
+     * @param array $nodes
+     * @return \stdClass[]
+     */
+    private static function as_node_rows(array $nodes): array {
+        $rows = [];
+
+        foreach ($nodes as $node) {
+            $key = (string) ($node['key'] ?? '');
+
+            if ($key === '') {
+                continue;
+            }
+
+            $rows[$key] = (object) [
+                'nodekey' => $key,
+                'type' => (string) ($node['type'] ?? ''),
+                'config' => $node['config'] ?? [],
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A drawing's own edge list, shaped the way {@see self::next()} expects:
+     * grouped by the node each edge leaves.
+     *
+     * @param array $edges
+     * @return array<string, \stdClass[]>
+     */
+    private static function as_edge_rows(array $edges): array {
+        $rows = [];
+
+        foreach ($edges as $edge) {
+            $from = (string) ($edge['from'] ?? '');
+
+            if ($from === '' || !isset($edge['to'])) {
+                continue;
+            }
+
+            $rows[$from][] = (object) [
+                'fromport' => (string) ($edge['port'] ?? graph_repository::PORT_OUT),
+                'tonode' => (string) $edge['to'],
+            ];
+        }
+
+        return $rows;
     }
 
     /**

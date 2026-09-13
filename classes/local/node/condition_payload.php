@@ -18,6 +18,7 @@ namespace tool_flowboard\local\node;
 
 use tool_flowboard\local\flow\flow_context;
 use tool_flowboard\local\matching\pattern_matcher;
+use tool_flowboard\local\run\reference_resolver;
 
 /**
  * A question about the event itself.
@@ -55,12 +56,85 @@ class condition_payload extends base_node {
     }
 
     /**
+     * A question has two ways out: the answer was yes, or it was no.
+     *
+     * @return string[]
+     */
+    public static function ports(): array {
+        return ['true', 'false'];
+    }
+
+    /**
      * The comparisons a flow may ask for.
      *
      * @return string[]
      */
     public static function operators(): array {
         return ['equals', 'notequals', 'in', 'notin', 'contains', 'matches', 'empty', 'notempty'];
+    }
+
+    /**
+     * A field from the triggering event, an operator, and what to compare it
+     * against — which may itself be a literal or a mapped field.
+     *
+     * @return array
+     */
+    public static function config_schema(): array {
+        $operators = [];
+
+        foreach (self::operators() as $operator) {
+            $operators[$operator] = 'flow:operator_' . $operator;
+        }
+
+        return [
+            ['key' => 'field', 'label' => 'flow:conditionfield', 'type' => 'eventfield', 'required' => true],
+            [
+                'key' => 'operator',
+                'label' => 'flow:conditionoperator',
+                'type' => 'select',
+                'options' => $operators,
+                'required' => true,
+            ],
+            [
+                'key' => 'value',
+                'label' => 'flow:conditionvalue',
+                'type' => 'text',
+                'referenceable' => true,
+                'required' => true,
+                'requiredunless' => ['operator' => ['empty', 'notempty']],
+            ],
+        ];
+    }
+
+    /**
+     * A field to read, a comparison this node actually knows, and — unless
+     * the comparison needs none — something to compare it against.
+     *
+     * @param array $config
+     * @return array<string, string>
+     */
+    public static function validate_config(array $config): array {
+        $errors = [];
+        $field = trim((string) ($config['field'] ?? ''));
+        $operator = (string) ($config['operator'] ?? '');
+        $value = $config['value'] ?? '';
+
+        if ($field === '') {
+            $errors['field'] = get_string('flow:error_required', 'tool_flowboard');
+        }
+
+        if (!in_array($operator, self::operators(), true)) {
+            $errors['operator'] = get_string('flow:error_required', 'tool_flowboard');
+        }
+
+        $needsvalue = !in_array($operator, ['empty', 'notempty'], true);
+        $valuegiven = trim((string) $value) !== '';
+
+        if ($needsvalue && !$valuegiven && !reference_resolver::is_reference($value)) {
+            $errors['value'] = get_string('flow:error_valuerequired', 'tool_flowboard');
+        }
+
+        return $errors;
     }
 
     /**

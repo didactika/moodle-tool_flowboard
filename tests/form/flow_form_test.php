@@ -17,8 +17,6 @@
 namespace tool_flowboard\form;
 
 use tool_flowboard\local\flow\flow_repository;
-use tool_flowboard\local\flow\flow_templates;
-use tool_flowboard\local\flow\graph_repository;
 
 /**
  * The form is built for real, not just decided.
@@ -47,29 +45,9 @@ final class flow_form_test extends \advanced_testcase {
         $form = new flow_form(new \moodle_url('/admin/tool/flowboard/edit.php'), ['flowid' => 0]);
         $html = $form->render();
 
-        $this->assertStringContainsString('id="id_eventname"', $html);
-        $this->assertStringContainsString('id="id_pattern"', $html);
+        $this->assertStringContainsString('id="id_name"', $html);
+        $this->assertStringContainsString('id="id_idnumber"', $html);
         $this->assert_no_complaints($html);
-    }
-
-    /**
-     * Each of the four templates renders too — this is exactly what "new
-     * flow from a template" builds.
-     */
-    public function test_a_form_prefilled_from_each_template_renders(): void {
-        global $PAGE;
-
-        $this->resetAfterTest();
-        $this->setAdminUser();
-        $PAGE->set_url('/admin/tool/flowboard/edit.php');
-
-        foreach (flow_templates::all() as $template) {
-            $form = new flow_form(new \moodle_url('/admin/tool/flowboard/edit.php'), ['flowid' => 0]);
-            $form->set_data((object) (['flowid' => 0] + flow_templates::data($template)));
-            $html = $form->render();
-
-            $this->assert_no_complaints($html, $template);
-        }
     }
 
     /**
@@ -84,25 +62,55 @@ final class flow_form_test extends \advanced_testcase {
         $PAGE->set_url('/admin/tool/flowboard/edit.php');
 
         $flow = flow_repository::create('welcome-forums', 'Welcome to the forums');
-        $triggerconfig = ['eventname' => '\core\event\role_assigned', 'subject' => 'relateduserid'];
-        $actionconfig = ['match' => 'name', 'operator' => 'contains', 'pattern' => 'general'];
-        graph_repository::publish((int) $flow->id, [
-            'nodes' => [
-                ['key' => 'trigger', 'type' => 'trigger_event', 'config' => $triggerconfig],
-                ['key' => 'action', 'type' => 'action_forum_subscribe', 'config' => $actionconfig],
-            ],
-            'edges' => [['from' => 'trigger', 'port' => 'out', 'to' => 'action']],
-        ]);
-
-        $graph = graph_repository::graph((int) flow_repository::get((int) $flow->id)->currentversionid);
-        $read = \tool_flowboard\local\flow\flow_editor::from_graph($graph);
 
         $form = new flow_form(new \moodle_url('/admin/tool/flowboard/edit.php'), ['flowid' => $flow->id]);
-        $form->set_data((object) (['flowid' => $flow->id, 'name' => $flow->name, 'idnumber' => $flow->idnumber] + $read['data']));
+        $form->set_data((object) [
+            'flowid' => $flow->id,
+            'name' => $flow->name,
+            'idnumber' => $flow->idnumber,
+            'description' => $flow->description,
+        ]);
         $html = $form->render();
 
-        $this->assertStringContainsString('general', $html);
+        $this->assertStringContainsString('Welcome to the forums', $html);
+        $this->assertStringContainsString('disabled', $html, 'The stable name is frozen once the flow exists.');
         $this->assert_no_complaints($html);
+    }
+
+    /**
+     * A name already used by another flow is refused.
+     */
+    public function test_a_taken_idnumber_is_refused(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        flow_repository::create('welcome-forums', 'Welcome to the forums');
+
+        $form = new flow_form(new \moodle_url('/admin/tool/flowboard/edit.php'), ['flowid' => 0]);
+        $errors = $form->validation(
+            ['flowid' => 0, 'name' => 'Something else', 'idnumber' => 'welcome-forums', 'description' => ''],
+            []
+        );
+
+        $this->assertArrayHasKey('idnumber', $errors);
+    }
+
+    /**
+     * A flow editing its own idnumber is not refused for holding it already.
+     */
+    public function test_a_flow_keeping_its_own_idnumber_is_not_refused(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $flow = flow_repository::create('welcome-forums', 'Welcome to the forums');
+
+        $form = new flow_form(new \moodle_url('/admin/tool/flowboard/edit.php'), ['flowid' => (int) $flow->id]);
+        $errors = $form->validation(
+            ['flowid' => (int) $flow->id, 'name' => 'Renamed', 'idnumber' => 'welcome-forums', 'description' => ''],
+            []
+        );
+
+        $this->assertArrayNotHasKey('idnumber', $errors);
     }
 
     /**

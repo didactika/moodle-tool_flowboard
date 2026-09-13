@@ -17,6 +17,7 @@
 namespace tool_flowboard\local\flow;
 
 use tool_flowboard\local\actor\actor_provisioner;
+use tool_flowboard\local\node\node_registry;
 
 /**
  * What a flow is drawn as: nodes, and the edges between them.
@@ -126,6 +127,10 @@ final class graph_repository {
 
         $transaction->allow_commit();
 
+        // Publishing is what a draft was for; there is nothing left to keep
+        // once the drawing it held is now the published version.
+        flow_repository::discard_draft($flowid);
+
         return $versionid;
     }
 
@@ -157,13 +162,13 @@ final class graph_repository {
      * The drawing of one version, as it was saved.
      *
      * @param int $versionid
-     * @return array{nodes: array, edges: array} Empty arrays where the version is unknown.
+     * @return array{nodes: array, edges: array, comments: array} Empty arrays where the version is unknown.
      */
     public static function graph(int $versionid): array {
         $version = self::version($versionid);
 
         if ($version === null) {
-            return ['nodes' => [], 'edges' => []];
+            return ['nodes' => [], 'edges' => [], 'comments' => []];
         }
 
         $graph = json_decode($version->graph, true);
@@ -171,6 +176,7 @@ final class graph_repository {
         return [
             'nodes' => $graph['nodes'] ?? [],
             'edges' => $graph['edges'] ?? [],
+            'comments' => $graph['comments'] ?? [],
         ];
     }
 
@@ -212,17 +218,21 @@ final class graph_repository {
     }
 
     /**
-     * Refuses a drawing that is not one.
+     * Refuses a drawing that is not one, or that could not actually run.
      *
-     * Structure only: that the nodes are nodes, that their keys are unique,
-     * and that no edge leads somewhere that does not exist. Whether the
-     * drawing *means* anything — that it starts at a trigger, that every path
-     * ends — is a question about the nodes themselves, and the engine asks it
-     * where it knows them.
+     * The shape is checked first — nodes are nodes, keys are unique, no edge
+     * leads nowhere — and any problem there stops everything else, because
+     * nothing past it could be checked meaningfully anyway. What is checked
+     * after is whether the drawing means something: exactly one trigger,
+     * nothing feeding into it, every edge leaving by a port its own node
+     * actually has, and every node's own configuration being one it could run
+     * with. Every one of those is collected and reported together, rather
+     * than one at a time — a flow with three mistakes should be told about
+     * three mistakes, not sent back to be told about the fourth.
      *
      * @param array $graph
      */
-    private static function validate(array $graph): void {
+    public static function validate(array $graph): void {
         if (empty($graph['nodes']) || !is_array($graph['nodes'])) {
             throw new \moodle_exception('error:graphempty', 'tool_flowboard');
         }
@@ -252,5 +262,99 @@ final class graph_repository {
                 }
             }
         }
+
+        $problems = array_merge(
+            self::node_problems($graph['nodes']),
+            self::shape_problems($graph['nodes'], $graph['edges'] ?? [])
+        );
+
+        if ($problems !== []) {
+            throw new \moodle_exception('error:graphinvalid', 'tool_flowboard', '', implode("\n", $problems));
+        }
+    }
+
+    /**
+     * Every node's own type and configuration, checked against what that
+     * kind of node actually declares it needs.
+     *
+     * @param array $nodes
+     * @return string[] One sentence per problem found.
+     */
+    private static function node_problems(array $nodes): array {
+        $problems = [];
+
+        foreach ($nodes as $node) {
+            $class = node_registry::all()[$node['type']] ?? null;
+
+            if ($class === null) {
+                $problems[] = get_string('error:graphunknowntype', 'tool_flowboard', (object) [
+                    'node' => $node['key'],
+                    'type' => $node['type'],
+                ]);
+
+                continue;
+            }
+
+            foreach ($class::validate_config($node['config'] ?? []) as $error) {
+                $problems[] = get_string('error:graphnodeconfig', 'tool_flowboard', (object) [
+                    'node' => $node['key'],
+                    'error' => $error,
+                ]);
+            }
+        }
+
+        return $problems;
+    }
+
+    /**
+     * Whether the drawing has exactly the one trigger every run needs to
+     * start from, nothing feeding into it, and every edge leaving by a port
+     * its own node actually draws.
+     *
+     * @param array $nodes
+     * @param array $edges
+     * @return string[] One sentence per problem found.
+     */
+    private static function shape_problems(array $nodes, array $edges): array {
+        $problems = [];
+        $triggers = [];
+        $ports = [];
+
+        foreach ($nodes as $node) {
+            $class = node_registry::all()[$node['type']] ?? null;
+
+            if ($class === null) {
+                continue;
+            }
+
+            if ($class::is_trigger()) {
+                $triggers[] = $node['key'];
+            }
+
+            $ports[$node['key']] = $class::ports();
+        }
+
+        if (count($triggers) === 0) {
+            $problems[] = get_string('error:graphnotrigger', 'tool_flowboard');
+        } else if (count($triggers) > 1) {
+            $problems[] = get_string('error:graphmultipletriggers', 'tool_flowboard', implode(', ', $triggers));
+        }
+
+        foreach ($edges as $edge) {
+            if (in_array($edge['to'], $triggers, true)) {
+                $problems[] = get_string('error:graphedgeintotrigger', 'tool_flowboard', $edge['to']);
+            }
+
+            $fromports = $ports[$edge['from']] ?? [];
+
+            if ($fromports !== [] && !in_array($edge['port'] ?? self::PORT_OUT, $fromports, true)) {
+                $problems[] = get_string('error:graphunknownport', 'tool_flowboard', (object) [
+                    'node' => $edge['from'],
+                    'port' => $edge['port'] ?? self::PORT_OUT,
+                ]);
+            }
+        }
+
+        return $problems;
     }
 }

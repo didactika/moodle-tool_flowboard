@@ -103,14 +103,25 @@ final class flow_index_test extends \advanced_testcase {
      * everything.
      */
     public function test_a_trigger_with_no_event_waits_for_nothing(): void {
+        global $DB;
+
         $this->resetAfterTest();
         $this->setAdminUser();
 
+        // Publishing a trigger with no event configured is refused these
+        // days — this is what the index still has to cope with safely if a
+        // row like that ever ends up in the database some other way.
         $flow = flow_repository::create('one', 'One');
-        graph_repository::publish((int) $flow->id, [
-            'nodes' => [['key' => 'trigger', 'type' => 'trigger_event', 'config' => []]],
+        $versionid = graph_repository::publish((int) $flow->id, [
+            'nodes' => [['key' => 'trigger', 'type' => 'trigger_event', 'config' => ['eventname' => '\core\event\course_viewed']]],
             'edges' => [],
         ]);
+        $DB->set_field(
+            'tool_flowboard_node',
+            'config',
+            json_encode([]),
+            ['versionid' => $versionid, 'nodekey' => 'trigger']
+        );
         flow_repository::set_status((int) $flow->id, flow_repository::STATUS_LIVE);
 
         $this->assertSame([], flow_index::index());

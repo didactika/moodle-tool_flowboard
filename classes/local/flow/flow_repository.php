@@ -201,6 +201,61 @@ final class flow_repository {
     }
 
     /**
+     * Remembers what the canvas has drawn but not yet published.
+     *
+     * A draft is never run — {@see graph_repository::publish()} is the only
+     * way a drawing starts reacting to anything — so saving one this often is
+     * exactly as safe as it is convenient.
+     *
+     * @param int $flowid
+     * @param array $graph nodes, edges and, optionally, the canvas's own
+     *        positions and comments — whatever shape the editor drew.
+     */
+    public static function save_draft(int $flowid, array $graph): void {
+        global $DB;
+
+        $DB->update_record(self::TABLE, (object) [
+            'id' => $flowid,
+            'draftgraph' => json_encode($graph),
+            'timemodified' => time(),
+        ]);
+    }
+
+    /**
+     * The canvas's own unpublished work, if there is any.
+     *
+     * @param int $flowid
+     * @return array|null Null while nothing has been drafted, or a draft was
+     *         published and cleared since.
+     */
+    public static function draft(int $flowid): ?array {
+        $flow = self::get($flowid);
+
+        if ($flow === null || $flow->draftgraph === null) {
+            return null;
+        }
+
+        return json_decode($flow->draftgraph, true) ?? null;
+    }
+
+    /**
+     * Clears the draft, because it has just been published (its own drawing
+     * is now the published version) or because whoever was editing it asked
+     * to throw it away.
+     *
+     * @param int $flowid
+     */
+    public static function discard_draft(int $flowid): void {
+        global $DB;
+
+        $DB->update_record(self::TABLE, (object) [
+            'id' => $flowid,
+            'draftgraph' => null,
+            'timemodified' => time(),
+        ]);
+    }
+
+    /**
      * Deletes a flow and everything that belonged to it.
      *
      * The run history goes too, which is a real loss — it is the answer to
