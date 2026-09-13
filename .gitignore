@@ -1,0 +1,7 @@
+# Non-English language packs are managed by Moodle's own translation system
+# (AMOS, https://lang.moodle.org/) once this plugin is registered in the
+# Moodle plugins directory, not by this repository. Keeping only lang/en/
+# here avoids this repo and AMOS fighting over the same files.
+lang/*
+!lang/en/
+!lang/en/**

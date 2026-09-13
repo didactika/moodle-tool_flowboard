@@ -1,0 +1,143 @@
+name: Release on version bump
+
+# Creates a git tag and a GitHub release automatically whenever the
+# $plugin->release value in version.php changes on `main` OR on any
+# MOODLE_XXX_STABLE branch -- a stable branch backporting a fix has its own
+# release line, same as `main`, so it needs the same ability to publish one
+# (mirrors the vMAJOR.x pattern used for npm packages: releases come from
+# whichever maintained line changed, not from one branch only).
+# It only acts when a tag for that release does not already exist, so
+# re-running or unrelated edits to version.php are safe (idempotent), and
+# safe across branches too: two different lines are expected to use their
+# own distinct release numbers, same as they would with separate npm majors.
+#
+# This plugin has no other release surface: there is no package registry to
+# publish to and no environment to deploy to, just this zip attached to a
+# GitHub Release (see README.md).
+
+on:
+  push:
+    branches:
+      - main
+      - 'MOODLE_*_STABLE'
+    paths:
+      - version.php
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Read release info from version.php
+        id: ver
+        run: |
+          release=$(grep -oP '\$plugin->release\s*=\s*'\''\K[^'\'']+' version.php)
+          version=$(grep -oP '\$plugin->version\s*=\s*\K[0-9]+' version.php)
+          if [ -z "$release" ]; then
+            echo "::error::Could not parse \$plugin->release from version.php"
+            exit 1
+          fi
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$release" >> "$GITHUB_OUTPUT"
+          echo "Detected release v$release (version $version)"
+
+      - name: Derive plugin name from version.php
+        id: plugin
+        run: |
+          # The release zip's filename and the folder name it unpacks into
+          # both need the plugin's short name, not the git repository's name.
+          # Both are derived from $plugin->component (e.g.
+          # "local_servicemanager"), the same field Moodle itself uses to
+          # know where to install the plugin:
+          #   - component  = the full value, used as the zip filename prefix
+          #                  ("local_servicemanager-v1.0.1.zip"), matching
+          #                  the convention Moodle plugin release zips use.
+          #   - shortname  = component with its "<type>_" prefix stripped
+          #                  ("servicemanager"), because a Moodle plugin zip
+          #                  must contain a single top-level folder matching
+          #                  the install path under the type folder, e.g.
+          #                  local/servicemanager/, mod/forum/, block/html/.
+          #                  Moodle plugin type prefixes never contain an
+          #                  underscore, so stripping up to the first "_" is
+          #                  safe.
+          component=$(grep -oP '\$plugin->component\s*=\s*'\''\K[^'\'']+' version.php || true)
+          if [ -z "$component" ]; then
+            # version.php has no $plugin->component yet (e.g. this repo was
+            # only just created from the template). Fall back to the
+            # repository directory name, stripping the "moodle-" prefix
+            # conventionally used for Moodle plugin repos on GitHub, e.g.
+            # "moodle-local_servicemanager" -> "local_servicemanager". In
+            # practice ci.yml's "validate" step already requires a real
+            # $plugin->component on every push/PR before this can run on
+            # main, so this fallback mainly matters for a very first commit.
+            component=$(basename "$(pwd)")
+            component="${component#moodle-}"
+            echo "::warning::\$plugin->component not found in version.php; falling back to directory-derived name '$component'. Add \$plugin->component to version.php."
+          fi
+
+          shortname="${component#*_}"
+          if [ "$shortname" = "$component" ]; then
+            # No "type_" prefix found -- use the component name as-is.
+            shortname="$component"
+          fi
+
+          echo "component=$component" >> "$GITHUB_OUTPUT"
+          echo "shortname=$shortname" >> "$GITHUB_OUTPUT"
+          echo "Derived component='$component' shortname='$shortname'"
+
+      - name: Check whether the tag already exists
+        id: check
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.ver.outputs.tag }} already exists — nothing to do."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        if: steps.check.outputs.exists == 'false'
+        id: notes
+        run: |
+          release='${{ steps.ver.outputs.release }}'
+          awk -v ver="$release" '
+            $0 ~ "^## \\[" ver "\\]" {f=1; next}
+            f && (/^## \[/ || /^\[[^]]+\]:/) {exit}
+            f {print}
+          ' CHANGELOG.md | sed '/./,$!d' > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            printf 'Release %s.\n' "$release" > release_notes.md
+          fi
+          echo "----- release notes -----"
+          cat release_notes.md
+
+      - name: Build plugin release zip
+        if: steps.check.outputs.exists == 'false'
+        id: zip
+        run: |
+          # Package the plugin into a zip file. Filename and internal folder
+          # prefix both come from the "Derive plugin name" step above.
+          zipname="${{ steps.plugin.outputs.component }}-${{ steps.ver.outputs.tag }}.zip"
+          git archive --format=zip --prefix="${{ steps.plugin.outputs.shortname }}/" -o "$zipname" "${{ github.sha }}"
+          echo "zipname=$zipname" >> "$GITHUB_OUTPUT"
+          echo "----- contents of $zipname -----"
+          unzip -l "$zipname"
+
+      - name: Create tag and release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" \
+            "${{ steps.zip.outputs.zipname }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.ver.outputs.tag }}" \
+            --notes-file release_notes.md
