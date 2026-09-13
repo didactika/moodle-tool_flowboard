@@ -21,11 +21,19 @@ name: Moodle Plugin CI
 #
 # workflow_dispatch is the escape hatch for re-running the suite against a
 # branch by hand, without opening a pull request to do it.
+#
+# `release/*` is this plugin's addition to the template. A release line here is
+# built over many pull requests before any of it reaches `main`, and they land
+# on a release branch rather than one at a time on `main`. Without this entry
+# those pull requests would be the only ones in the repository that merge
+# without the suite ever running -- the exact hole the template closes for
+# every other branch.
 on:
   pull_request:
     branches:
       - main
       - 'MOODLE_*_STABLE'
+      - 'release/*'
   workflow_dispatch:
 
 jobs:
