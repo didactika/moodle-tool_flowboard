@@ -15,7 +15,11 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Site settings for tool_flowboard.
+ * Where this plugin lives in the site administration.
+ *
+ * Admin tools are handed `$ADMIN` and are expected to add their own nodes, so
+ * everything the plugin offers hangs off one category of its own rather than
+ * scattering entries through Tools.
  *
  * @package    tool_flowboard
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
@@ -26,33 +30,47 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
-    $settings = new admin_settingpage(
+    $ADMIN->add('tools', new admin_category(
         'tool_flowboard',
-        get_string('pluginname', 'tool_flowboard')
+        new lang_string('pluginname', 'tool_flowboard')
+    ));
+
+    $settings = new admin_settingpage(
+        'tool_flowboard_settings',
+        new lang_string('settings:general', 'tool_flowboard')
     );
 
-    $settings->add(new admin_setting_configcheckbox(
-        'tool_flowboard/enabled',
-        get_string('setting:enabled', 'tool_flowboard'),
-        get_string('setting:enabled_desc', 'tool_flowboard'),
-        1
-    ));
+    if ($ADMIN->fulltree) {
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_flowboard/enabled',
+            new lang_string('setting:enabled', 'tool_flowboard'),
+            new lang_string('setting:enabled_desc', 'tool_flowboard'),
+            1
+        ));
 
-    $settings->add(new admin_setting_configtext(
-        'tool_flowboard/maxtargets',
-        get_string('setting:maxtargets', 'tool_flowboard'),
-        get_string('setting:maxtargets_desc', 'tool_flowboard'),
-        200,
-        PARAM_INT
-    ));
+        $settings->add(new admin_setting_configtext(
+            'tool_flowboard/maxtargets',
+            new lang_string('setting:maxtargets', 'tool_flowboard'),
+            new lang_string('setting:maxtargets_desc', 'tool_flowboard'),
+            200,
+            PARAM_INT
+        ));
 
-    $settings->add(new admin_setting_configtext(
-        'tool_flowboard/retentiondays',
-        get_string('setting:retentiondays', 'tool_flowboard'),
-        get_string('setting:retentiondays_desc', 'tool_flowboard'),
-        120,
-        PARAM_INT
-    ));
+        $settings->add(new admin_setting_configtext(
+            'tool_flowboard/retentiondays',
+            new lang_string('setting:retentiondays', 'tool_flowboard'),
+            new lang_string('setting:retentiondays_desc', 'tool_flowboard'),
+            120,
+            PARAM_INT
+        ));
+    }
 
-    $ADMIN->add('tools', $settings);
+    $ADMIN->add('tool_flowboard', $settings);
+
+    $ADMIN->add('tool_flowboard', new admin_externalpage(
+        'tool_flowboard_events',
+        new lang_string('events:heading', 'tool_flowboard'),
+        new moodle_url('/admin/tool/flowboard/events.php'),
+        'tool/flowboard:manage'
+    ));
 }

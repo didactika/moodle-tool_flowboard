@@ -1,0 +1,123 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template tool_flowboard/event_catalogue
+
+    Every event this site can fire, filtered by component and by name.
+
+    Context variables required for this template:
+    * formurl - Where the filter form posts
+    * search - What was searched for
+    * components - The component picker's options
+    * rows - The events to show
+    * hasrows - Whether there are any
+    * countlabel - How many are shown, of how many there are
+    * filtered - Whether a filter is in use
+
+    Example context (json):
+    {
+        "formurl": "/admin/tool/flowboard/events.php",
+        "search": "course",
+        "components": [
+            {"value": "", "label": "All components", "selected": false},
+            {"value": "core", "label": "System", "selected": true}
+        ],
+        "rows": [
+            {
+                "eventname": "\\core\\event\\course_viewed",
+                "name": "Course viewed",
+                "component": "System",
+                "crud": "Read",
+                "edulevel": "Taking part",
+                "objecttable": "course",
+                "since": "2.6",
+                "seen": true,
+                "payloadkeys": "courseid, other.coursesectionnumber, userid",
+                "seencount": 42
+            }
+        ],
+        "hasrows": true,
+        "countlabel": "Showing 1 of 873 events",
+        "filtered": true
+    }
+}}
+<div class="tool-flowboard-catalogue">
+    <form method="get" action="{{formurl}}" class="d-flex flex-wrap align-items-end mb-3">
+        <div class="mr-3 mb-2">
+            <label for="tool-flowboard-component">{{#str}} events:component, tool_flowboard {{/str}}</label>
+            <select class="custom-select" id="tool-flowboard-component" name="component">
+                {{#components}}
+                <option value="{{value}}" {{#selected}}selected{{/selected}}>{{label}}</option>
+                {{/components}}
+            </select>
+        </div>
+        <div class="mr-3 mb-2">
+            <label for="tool-flowboard-search">{{#str}} events:search, tool_flowboard {{/str}}</label>
+            <input type="text" class="form-control" id="tool-flowboard-search" name="search" value="{{search}}">
+        </div>
+        <div class="mb-2">
+            <button type="submit" class="btn btn-primary">{{#str}} events:filter, tool_flowboard {{/str}}</button>
+            {{#filtered}}
+            <a class="btn btn-secondary" href="{{formurl}}">{{#str}} events:clearfilter, tool_flowboard {{/str}}</a>
+            {{/filtered}}
+        </div>
+    </form>
+
+    <p class="text-muted">{{countlabel}}</p>
+
+    {{#hasrows}}
+    <div class="table-responsive">
+        <table class="table table-striped table-sm">
+            <caption class="sr-only">{{#str}} events:heading, tool_flowboard {{/str}}</caption>
+            <thead>
+                <tr>
+                    <th scope="col">{{#str}} events:event, tool_flowboard {{/str}}</th>
+                    <th scope="col">{{#str}} events:componentcolumn, tool_flowboard {{/str}}</th>
+                    <th scope="col">{{#str}} events:crud, tool_flowboard {{/str}}</th>
+                    <th scope="col">{{#str}} events:edulevel, tool_flowboard {{/str}}</th>
+                    <th scope="col">{{#str}} events:payload, tool_flowboard {{/str}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#rows}}
+                <tr>
+                    <td>
+                        <div>{{name}}</div>
+                        <code class="text-muted small">{{eventname}}</code>
+                    </td>
+                    <td>{{component}}</td>
+                    <td>{{crud}}</td>
+                    <td>{{edulevel}}</td>
+                    <td>
+                        {{#seen}}
+                        <code class="small">{{payloadkeys}}</code>
+                        {{/seen}}
+                        {{^seen}}
+                        <span class="text-muted small">{{#str}} events:notseenyet, tool_flowboard {{/str}}</span>
+                        {{/seen}}
+                    </td>
+                </tr>
+                {{/rows}}
+            </tbody>
+        </table>
+    </div>
+    {{/hasrows}}
+
+    {{^hasrows}}
+    <div class="alert alert-info">{{#str}} events:none, tool_flowboard {{/str}}</div>
+    {{/hasrows}}
+</div>

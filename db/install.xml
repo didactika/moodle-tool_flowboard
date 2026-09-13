@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="admin/tool/flowboard/db" VERSION="20260913" COMMENT="XMLDB file for Moodle admin/tool/flowboard"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="tool_flowboard_flow" COMMENT="One automation: what it is called, and whether it is running">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="idnumber" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Stable name of this flow, used by exports and by the flow's own actor so that neither travels with a numeric id"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="draft" SEQUENCE="false" COMMENT="draft, live or paused"/>
+        <FIELD NAME="dryrun" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether this flow only says what it would have done"/>
+        <FIELD NAME="currentversionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="The published version, null while the flow has never been published"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="usermodified" TYPE="foreign" FIELDS="usermodified" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="idnumber" UNIQUE="true" FIELDS="idnumber"/>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="tool_flowboard_version" COMMENT="A published drawing of a flow, never edited once published, so that a run can be explained by the version it ran">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="flowid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="versionnumber" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="graph" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="The whole drawing as JSON: nodes, edges and their positions"/>
+        <FIELD NAME="note" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="What changed in this version"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="flowid" TYPE="foreign" FIELDS="flowid" REFTABLE="tool_flowboard_flow" REFFIELDS="id"/>
+        <KEY NAME="usermodified" TYPE="foreign" FIELDS="usermodified" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="flowid-versionnumber" UNIQUE="true" FIELDS="flowid, versionnumber"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="tool_flowboard_node" COMMENT="The nodes of one version, kept as rows as well as inside the graph so they can be indexed and asked about">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="flowid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="versionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="nodekey" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false" COMMENT="Identifies the node inside its own version"/>
+        <FIELD NAME="type" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Which kind of node, as the node registry names it"/>
+        <FIELD NAME="config" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="What this node was set up to do, as JSON"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="flowid" TYPE="foreign" FIELDS="flowid" REFTABLE="tool_flowboard_flow" REFFIELDS="id"/>
+        <KEY NAME="versionid" TYPE="foreign" FIELDS="versionid" REFTABLE="tool_flowboard_version" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="versionid-nodekey" UNIQUE="true" FIELDS="versionid, nodekey"/>
+        <INDEX NAME="type" UNIQUE="false" FIELDS="type"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="tool_flowboard_edge" COMMENT="Which node leads to which, and out of which port">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="flowid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="versionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="fromnode" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="fromport" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="out" SEQUENCE="false" COMMENT="Which way out of the node this edge leaves by: out, true, false or error"/>
+        <FIELD NAME="tonode" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="flowid" TYPE="foreign" FIELDS="flowid" REFTABLE="tool_flowboard_flow" REFFIELDS="id"/>
+        <KEY NAME="versionid" TYPE="foreign" FIELDS="versionid" REFTABLE="tool_flowboard_version" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="versionid-fromnode" UNIQUE="false" FIELDS="versionid, fromnode"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="tool_flowboard_run" COMMENT="One execution of one flow: what set it off, over whom, and how it ended">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="flowid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="versionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The version that ran, not the one the flow has now"/>
+        <FIELD NAME="triggertype" TYPE="char" LENGTH="40" NOTNULL="true" DEFAULT="event" SEQUENCE="false"/>
+        <FIELD NAME="eventname" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="eventdata" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The event as Moodle handed it over, kept so the run can be explained and replayed"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="running" SEQUENCE="false" COMMENT="running, waiting, ok, failed or skipped"/>
+        <FIELD NAME="dryrun" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="subjectid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="The person the flow acted on"/>
+        <FIELD NAME="depth" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="How many runs deep this one is, so a flow cannot set itself off forever"/>
+        <FIELD NAME="parentrunid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="error" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timefinished" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="flowid" TYPE="foreign" FIELDS="flowid" REFTABLE="tool_flowboard_flow" REFFIELDS="id"/>
+        <KEY NAME="subjectid" TYPE="foreign" FIELDS="subjectid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="flowid-timestarted" UNIQUE="false" FIELDS="flowid, timestarted"/>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="timestarted" UNIQUE="false" FIELDS="timestarted"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="tool_flowboard_run_node" COMMENT="What each node of a run did, which is how anyone answers why this happened to this person">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="runid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="nodekey" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="nodetype" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="ok, failed, skipped or stopped"/>
+        <FIELD NAME="summary" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="What the node was given and what it answered, in the node's own words"/>
+        <FIELD NAME="error" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="durationms" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="runid" TYPE="foreign" FIELDS="runid" REFTABLE="tool_flowboard_run" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="runid-sortorder" UNIQUE="false" FIELDS="runid, sortorder"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="tool_flowboard_actor" COMMENT="The user and role a flow acts as, holding only the capabilities its own nodes need">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="flowid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="roleid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="capabilities" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The capabilities granted, as JSON, so a change can be shown as a difference"/>
+        <FIELD NAME="contextids" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Where the role was assigned"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="active" SEQUENCE="false" COMMENT="active or suspended"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="flowid" TYPE="foreign" FIELDS="flowid" REFTABLE="tool_flowboard_flow" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="flowid-unique" UNIQUE="true" FIELDS="flowid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="tool_flowboard_event_seen" COMMENT="What each event was actually carrying when it went past, because Moodle does not declare it">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="eventname" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="component" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="payloadkeys" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The keys seen in the event, as JSON"/>
+        <FIELD NAME="sample" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="One example, with anything identifying a person left out"/>
+        <FIELD NAME="seencount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timefirstseen" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timelastseen" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="eventname" UNIQUE="true" FIELDS="eventname"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

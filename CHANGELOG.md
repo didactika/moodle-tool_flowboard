@@ -30,6 +30,23 @@ its own $plugin->release line -- no need to reconcile entries across branches.
 
 ### Changed
 
-- CI now also runs on pull requests into `release/*`. This release line is
-  built on `release/0.1.0` over several pull requests, and without this they
-  would merge without the suite ever running.
+- CI now runs on pushes to `release/*` as well as on pull requests into them.
+  This release line is built by committing straight to `release/0.1.0`, so a
+  push there is the first time that code is seen at all — not an already-tested
+  merge, which is what the template assumes about protected branches.
+
+### Added
+
+- The tables a flow is made of: the flow itself, its published versions, the
+  nodes and edges of each, the run history, the actor a flow acts as, and what
+  each event was seen carrying.
+- A real privacy provider. The run history says which person a flow acted on,
+  so the null provider that shipped with the skeleton had stopped being true.
+- The event catalogue: every event this site can fire, read off the installed
+  components rather than listed here, with a page to search it by name and by
+  component.
+
+### Fixed
+
+- The two files the template ships as placeholders were still in the tree and
+  failed the code checker, which is what broke the first pipeline run.

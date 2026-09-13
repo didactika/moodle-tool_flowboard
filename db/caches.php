@@ -15,17 +15,29 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Language strings for PLUGINTYPE_PLUGINNAME
+ * Caches this plugin defines.
  *
- * VERIFY: rename this file to match $plugin->component from version.php
- * (e.g. lang/en/local_servicemanager.php), and fill in @author.
- *
- * @package    PLUGINTYPE_PLUGINNAME
- * @copyright  YEAR YOUR ORGANISATION
+ * @package    tool_flowboard
+ * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
+ * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-// Mandatory: moodle-plugin-ci validate fails without a pluginname string.
-$string['pluginname'] = 'PLUGINTYPE_PLUGINNAME'; // VERIFY: replace before first commit.
+$definitions = [
+
+    // Every event the site can fire, read off the installed components.
+    //
+    // Building it means reflecting over every class in every component's event
+    // namespace, which is far too expensive to do per request, and the answer
+    // only changes when a plugin is installed or upgraded — at which point
+    // Moodle purges its caches anyway.
+    'eventcatalogue' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 1,
+    ],
+];

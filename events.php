@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for tool_flowboard.
+ * Everything a flow could be built on: the events this site can fire.
  *
  * @package    tool_flowboard
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
@@ -23,20 +23,20 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+require(__DIR__ . '/../../../config.php');
+require_once($CFG->libdir . '/adminlib.php');
 
-$plugin->component = 'tool_flowboard';
+use tool_flowboard\local\event_catalogue;
+use tool_flowboard\output\event_catalogue_page;
 
-// Bumped on every change that needs an upgrade step. Format YYYYMMDDXX.
-$plugin->version = 2026091301;
+admin_externalpage_setup('tool_flowboard_events');
 
-// Moodle 4.5.0, expressed as core's own version number.
-$plugin->requires = 2024100700;
+$component = optional_param('component', '', PARAM_COMPONENT);
+$search = trim(optional_param('search', '', PARAM_TEXT));
 
-$plugin->maturity = MATURITY_ALPHA;
+$page = new event_catalogue_page(event_catalogue::all(), $component, $search);
 
-$plugin->release = '0.1.0';
-
-// The single source of truth for which Moodle versions this plugin is tested
-// against: .github/workflows/ci.yml builds its matrix from this array.
-$plugin->supported = [405, 502];
+echo $OUTPUT->header();
+echo $OUTPUT->heading(get_string('events:heading', 'tool_flowboard'));
+echo $OUTPUT->render_from_template('tool_flowboard/event_catalogue', $page->export());
+echo $OUTPUT->footer();
