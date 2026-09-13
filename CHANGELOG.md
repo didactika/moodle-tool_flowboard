@@ -64,3 +64,36 @@ its own $plugin->release line -- no need to reconcile entries across branches.
   person the run is about, and a question about the event.
 - A node registry that finds node classes rather than listing them, which is
   what will let other plugins add nodes without forking this one.
+
+### Added
+
+- Two more nodes: subscribing and unsubscribing the run's subject to the
+  forums of a course that match a name or idnumber pattern. Both require
+  `mod/forum:managesubscriptions`, because that is the same capability
+  `subscribe.php` checks before letting a person override a forum's own
+  subscription mode.
+- `pattern_matcher`, the one place "does this text match what was typed"
+  lives — exact, contains, starts with, or a guarded regular expression —
+  shared by the condition node and both forum nodes instead of duplicated.
+- `forum_matcher`, which finds a course's forums by name or by
+  `course_modules.idnumber` (a forum has no idnumber of its own).
+
+### Fixed
+
+- `events.php` called a method the page's own class never defined
+  (`export()` instead of `export_for_template()`), which made the page fatal
+  on every visit. Confirmed by rendering the page through the same call the
+  route makes.
+- A generic-style `@param array<string, \stdClass[]>` in `engine.php` broke
+  moodle-plugin-ci's phpdoc checker: its parser splits on whitespace, and the
+  comma inside the generic split the type from the parameter name. Rewritten
+  as `\stdClass[][]`, which the checker parses correctly and which still
+  reads as "grouped by the node it leaves".
+- A forum set to "subscription disabled" can still be subscribed to by hand
+  in Moodle's own interface, for anyone holding
+  `mod/forum:managesubscriptions` — confirmed against `subscribe.php`'s own
+  override check. The subscribe node does the same rather than refusing.
+- Unsubscribing from a forum that forces subscription on everyone reports the
+  true outcome (`stillforced`) instead of claiming success: Moodle considers
+  such a person subscribed regardless of any row this node removes, so
+  reporting "unsubscribed" would have recorded something that did not happen.

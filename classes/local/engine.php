@@ -228,7 +228,7 @@ final class engine {
     /**
      * Where an edge leads from one node, leaving by one port.
      *
-     * @param array<string, \stdClass[]> $edges
+     * @param \stdClass[][] $edges Edges grouped by the node they leave, keyed by that node's key.
      * @param string $from
      * @param string $port
      * @return string|null Null where nothing is drawn from there, which is how

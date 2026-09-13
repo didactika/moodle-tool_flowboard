@@ -17,6 +17,7 @@
 namespace tool_flowboard\local\node;
 
 use tool_flowboard\local\flow_context;
+use tool_flowboard\local\pattern_matcher;
 
 /**
  * A question about the event itself.
@@ -34,9 +35,6 @@ use tool_flowboard\local\flow_context;
 class condition_payload extends base_node {
     /** @var string How flows refer to this node. */
     public const TYPE = 'condition_payload';
-
-    /** @var int The most characters a pattern may have, so a flow cannot hang the cron on a regex. */
-    private const MAX_PATTERN_LENGTH = 255;
 
     /**
      * What this kind of node is called, as flows refer to it.
@@ -91,6 +89,11 @@ class condition_payload extends base_node {
     /**
      * One comparison.
      *
+     * `contains` and `matches` are handed to {@see pattern_matcher} rather than
+     * compared here: it is the one place a regular expression's safety is
+     * looked after, and every node that matches text against a pattern shares
+     * it instead of growing its own copy.
+     *
      * @param string $operator One of {@see self::operators()}.
      * @param mixed $actual What the event carried.
      * @param mixed $expected What the flow asked for.
@@ -111,11 +114,18 @@ class condition_payload extends base_node {
                 return !in_array(self::as_text($actual), self::as_list($expected), true);
 
             case 'contains':
-                return self::as_text($expected) !== ''
-                    && strpos(self::as_text($actual), self::as_text($expected)) !== false;
+                return pattern_matcher::matches(
+                    self::as_text($actual),
+                    pattern_matcher::OPERATOR_CONTAINS,
+                    self::as_text($expected)
+                );
 
             case 'matches':
-                return self::matches(self::as_text($actual), self::as_text($expected));
+                return pattern_matcher::matches(
+                    self::as_text($actual),
+                    pattern_matcher::OPERATOR_REGEX,
+                    self::as_text($expected)
+                );
 
             case 'empty':
                 return self::as_text($actual) === '';
@@ -130,45 +140,6 @@ class condition_payload extends base_node {
                 // notices until it is too late.
                 return false;
         }
-    }
-
-    /**
-     * A regular expression, run with the guards an administrator's pattern
-     * needs.
-     *
-     * A pattern is a small program written in a text box, and this one runs on
-     * the way past every matching event. So it is capped in length, delimited
-     * here rather than by whoever typed it, and checked afterwards: a pattern
-     * that blew the backtracking limit answers no and says nothing matched,
-     * instead of taking the cron down with it.
-     *
-     * @param string $subject
-     * @param string $pattern
-     * @return bool
-     */
-    private static function matches(string $subject, string $pattern): bool {
-        if ($pattern === '' || \core_text::strlen($pattern) > self::MAX_PATTERN_LENGTH) {
-            return false;
-        }
-
-        $result = @preg_match('~' . str_replace('~', '\~', $pattern) . '~u', $subject);
-
-        return $result === 1;
-    }
-
-    /**
-     * Whether a pattern is one PCRE will accept, asked at the time somebody
-     * types it rather than at the time it runs.
-     *
-     * @param string $pattern
-     * @return bool
-     */
-    public static function is_valid_pattern(string $pattern): bool {
-        if ($pattern === '' || \core_text::strlen($pattern) > self::MAX_PATTERN_LENGTH) {
-            return false;
-        }
-
-        return @preg_match('~' . str_replace('~', '\~', $pattern) . '~u', '') !== false;
     }
 
     /**

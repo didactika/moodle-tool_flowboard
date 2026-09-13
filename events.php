@@ -38,5 +38,5 @@ $page = new event_catalogue_page(event_catalogue::all(), $component, $search);
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('events:heading', 'tool_flowboard'));
-echo $OUTPUT->render_from_template('tool_flowboard/event_catalogue', $page->export());
+echo $OUTPUT->render_from_template('tool_flowboard/event_catalogue', $page->export_for_template($OUTPUT));
 echo $OUTPUT->footer();
