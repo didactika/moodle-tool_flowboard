@@ -21,11 +21,25 @@ name: Moodle Plugin CI
 #
 # workflow_dispatch is the escape hatch for re-running the suite against a
 # branch by hand, without opening a pull request to do it.
+#
+# `release/*` is this plugin's addition, and it is the one branch kind that
+# needs BOTH triggers. A release line here is built by committing straight to
+# it over many changes before any of it reaches `main`, so the reasoning above
+# — "a push to a protected branch is always an already-tested merge" — does not
+# hold for it: a push to a release branch is the first time that code is seen
+# at all. Without the `push` entry the whole line would be written untested and
+# only checked in one enormous pull request at the end, which is the opposite
+# of what a gate is for. The `pull_request` entry stays for anyone who does
+# open a pull request against a release branch instead.
 on:
+  push:
+    branches:
+      - 'release/*'
   pull_request:
     branches:
       - main
       - 'MOODLE_*_STABLE'
+      - 'release/*'
   workflow_dispatch:
 
 jobs:

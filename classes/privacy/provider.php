@@ -14,29 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace tool_flowboard\privacy;
+
+use core_privacy\local\metadata\null_provider;
+
 /**
- * Version information for tool_flowboard.
+ * Nothing is stored yet.
+ *
+ * This is true of the plugin as it stands and will stop being true as soon as
+ * it records what its flows have done: a run says which person a flow acted
+ * on, which is personal data by any reading. When those tables land this class
+ * is replaced by a real provider that exports and deletes them — a null
+ * provider left in place after that point would be a false statement, not an
+ * omission.
  *
  * @package    tool_flowboard
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
  * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'tool_flowboard';
-
-// Bumped on every change that needs an upgrade step. Format YYYYMMDDXX.
-$plugin->version = 2026091300;
-
-// Moodle 4.5.0, expressed as core's own version number.
-$plugin->requires = 2024100700;
-
-$plugin->maturity = MATURITY_ALPHA;
-
-$plugin->release = '0.1.0';
-
-// The single source of truth for which Moodle versions this plugin is tested
-// against: .github/workflows/ci.yml builds its matrix from this array.
-$plugin->supported = [405, 502];
+class provider implements null_provider {
+    /**
+     * Why there is nothing to describe.
+     *
+     * @return string The identifier of a string explaining it.
+     */
+    public static function get_reason(): string {
+        return 'privacy:metadata';
+    }
+}

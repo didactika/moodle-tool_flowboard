@@ -20,3 +20,16 @@ its own $plugin->release line -- no need to reconcile entries across branches.
 -->
 
 ## [Unreleased]
+
+### Added
+
+- The plugin itself: component, capabilities, site settings and licence, so
+  there is something to install while the engine is built on top of it.
+- `tool/flowboard:manage` and `tool/flowboard:viewruns`, kept apart because
+  reading what a flow did and deciding what it does next are different jobs.
+
+### Changed
+
+- CI now also runs on pull requests into `release/*`. This release line is
+  built on `release/0.1.0` over several pull requests, and without this they
+  would merge without the suite ever running.
