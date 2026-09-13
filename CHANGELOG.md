@@ -50,3 +50,17 @@ its own $plugin->release line -- no need to reconcile entries across branches.
 
 - The two files the template ships as placeholders were still in the tree and
   failed the code checker, which is what broke the first pipeline run.
+
+### Added
+
+- The observer. It is registered for every event the site fires, so a flow can
+  be built on an event belonging to a plugin this one has never heard of, and
+  it answers "is anybody waiting for this?" from an application cache without
+  touching the database.
+- The engine: it walks the drawing node by node, writes down each one as it
+  goes, and counts its steps so that a drawing with a loop in it stops instead
+  of running forever.
+- The first two kinds of node: an event trigger, which also settles which
+  person the run is about, and a question about the event.
+- A node registry that finds node classes rather than listing them, which is
+  what will let other plugins add nodes without forking this one.

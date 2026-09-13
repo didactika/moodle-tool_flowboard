@@ -40,4 +40,20 @@ $definitions = [
         'staticacceleration' => true,
         'staticaccelerationsize' => 1,
     ],
+
+    // Which flows are waiting for which event.
+    //
+    // This one is read on the way past every event the site fires, which is
+    // the busiest path this plugin has by a wide margin and the reason it is a
+    // cache at all: on a site with no flow waiting for an event, answering
+    // costs one cache read and no query. Static acceleration matters as much
+    // as the cache itself here, because the same request asks the same
+    // question hundreds of times.
+    'flowindex' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 1,
+    ],
 ];

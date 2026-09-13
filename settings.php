@@ -57,6 +57,14 @@ if ($hassiteconfig) {
         ));
 
         $settings->add(new admin_setting_configtext(
+            'tool_flowboard/maxdepth',
+            new lang_string('setting:maxdepth', 'tool_flowboard'),
+            new lang_string('setting:maxdepth_desc', 'tool_flowboard'),
+            3,
+            PARAM_INT
+        ));
+
+        $settings->add(new admin_setting_configtext(
             'tool_flowboard/retentiondays',
             new lang_string('setting:retentiondays', 'tool_flowboard'),
             new lang_string('setting:retentiondays_desc', 'tool_flowboard'),

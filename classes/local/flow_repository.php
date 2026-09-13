@@ -162,6 +162,9 @@ final class flow_repository {
             'timemodified' => time(),
             'usermodified' => (int) $USER->id,
         ]);
+
+        // Who is waiting for what has just changed.
+        flow_index::invalidate();
     }
 
     /**
@@ -179,6 +182,9 @@ final class flow_repository {
             'timemodified' => time(),
             'usermodified' => (int) $USER->id,
         ]);
+
+        // A published flow may now be listening for something else entirely.
+        flow_index::invalidate();
     }
 
     /**
@@ -206,5 +212,7 @@ final class flow_repository {
         $DB->delete_records('tool_flowboard_version', ['flowid' => $flowid]);
         $DB->delete_records('tool_flowboard_actor', ['flowid' => $flowid]);
         $DB->delete_records(self::TABLE, ['id' => $flowid]);
+
+        flow_index::invalidate();
     }
 }
