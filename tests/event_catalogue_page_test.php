@@ -16,8 +16,8 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\event_catalogue;
-use tool_flowboard\local\event_seen_repository;
+use tool_flowboard\local\event\event_catalogue;
+use tool_flowboard\local\event\event_seen_repository;
 use tool_flowboard\output\event_catalogue_page;
 
 /**

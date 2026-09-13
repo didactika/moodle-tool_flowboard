@@ -16,7 +16,8 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\flow_context;
+use tool_flowboard\local\flow\flow_context;
+use tool_flowboard\local\flow\graph_repository;
 use tool_flowboard\local\node\condition_payload;
 
 /**
@@ -48,7 +49,7 @@ final class condition_payload_test extends \advanced_testcase {
 
         $this->assertSame($answer, $result->summary()['matched']);
         $this->assertSame(
-            $answer ? \tool_flowboard\local\graph_repository::PORT_TRUE : \tool_flowboard\local\graph_repository::PORT_FALSE,
+            $answer ? graph_repository::PORT_TRUE : graph_repository::PORT_FALSE,
             $result->port()
         );
     }

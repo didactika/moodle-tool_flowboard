@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace tool_flowboard\local;
+namespace tool_flowboard\local\flow;
+
+use tool_flowboard\local\actor\actor_provisioner;
 
 /**
  * The flows themselves: what exists, and which of them are running.
@@ -163,6 +165,17 @@ final class flow_repository {
             'usermodified' => (int) $USER->id,
         ]);
 
+        // A flow that is not live must not be able to act, whatever state it
+        // moves to instead: a paused flow and a flow put back into draft are
+        // both "not running" as far as its actor is concerned. Live is the one
+        // state that gets it back — for a flow with no actor yet (never
+        // published) this is a no-op; publishing is what creates one.
+        if ($status === self::STATUS_LIVE) {
+            actor_provisioner::resume($flowid);
+        } else {
+            actor_provisioner::suspend($flowid);
+        }
+
         // Who is waiting for what has just changed.
         flow_index::invalidate();
     }
@@ -205,6 +218,11 @@ final class flow_repository {
             [$insql, $params] = $DB->get_in_or_equal($runids, SQL_PARAMS_NAMED);
             $DB->delete_records_select('tool_flowboard_run_node', "runid {$insql}", $params);
         }
+
+        // The real user account and role, not just the row that records them:
+        // dropping only tool_flowboard_actor would leave both existing forever
+        // with nothing left pointing at why.
+        actor_provisioner::deprovision($flowid);
 
         $DB->delete_records('tool_flowboard_run', ['flowid' => $flowid]);
         $DB->delete_records('tool_flowboard_edge', ['flowid' => $flowid]);

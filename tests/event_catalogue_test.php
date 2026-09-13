@@ -16,7 +16,7 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\event_catalogue;
+use tool_flowboard\local\event\event_catalogue;
 
 /**
  * The catalogue of things a flow can react to.
@@ -29,7 +29,7 @@ use tool_flowboard\local\event_catalogue;
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
  * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \tool_flowboard\local\event_catalogue
+ * @covers     \tool_flowboard\local\event\event_catalogue
  */
 final class event_catalogue_test extends \advanced_testcase {
     /**

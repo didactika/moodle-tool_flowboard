@@ -16,8 +16,8 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\flow_repository;
-use tool_flowboard\local\graph_repository;
+use tool_flowboard\local\flow\flow_repository;
+use tool_flowboard\local\flow\graph_repository;
 
 /**
  * Publishing a drawing, and getting it back exactly as it was.
@@ -26,7 +26,7 @@ use tool_flowboard\local\graph_repository;
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
  * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \tool_flowboard\local\graph_repository
+ * @covers     \tool_flowboard\local\flow\graph_repository
  */
 final class graph_repository_test extends \advanced_testcase {
     /** @var \stdClass The flow being drawn. */

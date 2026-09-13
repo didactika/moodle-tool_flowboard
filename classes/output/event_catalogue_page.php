@@ -17,8 +17,8 @@
 namespace tool_flowboard\output;
 
 use renderer_base;
-use tool_flowboard\local\event_catalogue;
-use tool_flowboard\local\event_seen_repository;
+use tool_flowboard\local\event\event_catalogue;
+use tool_flowboard\local\event\event_seen_repository;
 
 /**
  * The event catalogue, narrowed to what somebody asked to see.

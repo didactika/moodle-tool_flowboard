@@ -16,8 +16,8 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\forum_matcher;
-use tool_flowboard\local\pattern_matcher;
+use tool_flowboard\local\matching\forum_matcher;
+use tool_flowboard\local\matching\pattern_matcher;
 
 /**
  * Finding a course's forums by name or by idnumber.
@@ -26,7 +26,7 @@ use tool_flowboard\local\pattern_matcher;
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
  * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \tool_flowboard\local\forum_matcher
+ * @covers     \tool_flowboard\local\matching\forum_matcher
  */
 final class forum_matcher_test extends \advanced_testcase {
     /** @var \stdClass The course. */

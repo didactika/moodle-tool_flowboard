@@ -16,9 +16,9 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\flow_index;
-use tool_flowboard\local\flow_repository;
-use tool_flowboard\local\graph_repository;
+use tool_flowboard\local\flow\flow_index;
+use tool_flowboard\local\flow\flow_repository;
+use tool_flowboard\local\flow\graph_repository;
 
 /**
  * The observer that sees every event the site fires.

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Everything a flow could be built on: the events this site can fire.
+ * Every flow's actor: the account it runs as, and what it may do.
  *
  * @package    tool_flowboard
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
@@ -26,17 +26,13 @@
 require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-use tool_flowboard\local\event\event_catalogue;
-use tool_flowboard\output\event_catalogue_page;
+use tool_flowboard\output\actor_list_page;
 
-admin_externalpage_setup('tool_flowboard_events');
+admin_externalpage_setup('tool_flowboard_actors');
 
-$component = optional_param('component', '', PARAM_COMPONENT);
-$search = trim(optional_param('search', '', PARAM_TEXT));
-
-$page = new event_catalogue_page(event_catalogue::all(), $component, $search);
+$page = new actor_list_page();
 
 echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('events:heading', 'tool_flowboard'));
-echo $OUTPUT->render_from_template('tool_flowboard/event_catalogue', $page->export_for_template($OUTPUT));
+echo $OUTPUT->heading(get_string('actors:heading', 'tool_flowboard'));
+echo $OUTPUT->render_from_template('tool_flowboard/actor_list', $page->export_for_template($OUTPUT));
 echo $OUTPUT->footer();

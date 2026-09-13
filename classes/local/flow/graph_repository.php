@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace tool_flowboard\local;
+namespace tool_flowboard\local\flow;
+
+use tool_flowboard\local\actor\actor_provisioner;
 
 /**
  * What a flow is drawn as: nodes, and the edges between them.
@@ -61,46 +63,66 @@ final class graph_repository {
 
         self::validate($graph);
 
+        // Checked before a single row is written, not inside the transaction
+        // below: a delegated transaction only rolls back automatically once an
+        // exception escapes the entire request uncaught, and refusing this is
+        // exactly the kind of thing calling code is meant to catch and turn
+        // into a friendly message instead of letting it do that. Checking
+        // first means there is nothing to undo either way.
+        actor_provisioner::require_publisher_can_grant($graph['nodes']);
+
         $transaction = $DB->start_delegated_transaction();
 
-        $versionnumber = (int) $DB->get_field_sql(
-            'SELECT COALESCE(MAX(versionnumber), 0) + 1 FROM {tool_flowboard_version} WHERE flowid = :flowid',
-            ['flowid' => $flowid]
-        );
+        try {
+            $versionnumber = (int) $DB->get_field_sql(
+                'SELECT COALESCE(MAX(versionnumber), 0) + 1 FROM {tool_flowboard_version} WHERE flowid = :flowid',
+                ['flowid' => $flowid]
+            );
 
-        $versionid = $DB->insert_record('tool_flowboard_version', (object) [
-            'flowid' => $flowid,
-            'versionnumber' => $versionnumber,
-            'graph' => json_encode($graph),
-            'note' => $note === '' ? null : $note,
-            'timecreated' => time(),
-            'usermodified' => (int) $USER->id,
-        ]);
-
-        $sortorder = 0;
-
-        foreach ($graph['nodes'] as $node) {
-            $DB->insert_record('tool_flowboard_node', (object) [
+            $versionid = $DB->insert_record('tool_flowboard_version', (object) [
                 'flowid' => $flowid,
-                'versionid' => $versionid,
-                'nodekey' => $node['key'],
-                'type' => $node['type'],
-                'config' => json_encode($node['config'] ?? []),
-                'sortorder' => $sortorder++,
+                'versionnumber' => $versionnumber,
+                'graph' => json_encode($graph),
+                'note' => $note === '' ? null : $note,
+                'timecreated' => time(),
+                'usermodified' => (int) $USER->id,
             ]);
-        }
 
-        foreach ($graph['edges'] ?? [] as $edge) {
-            $DB->insert_record('tool_flowboard_edge', (object) [
-                'flowid' => $flowid,
-                'versionid' => $versionid,
-                'fromnode' => $edge['from'],
-                'fromport' => $edge['port'] ?? self::PORT_OUT,
-                'tonode' => $edge['to'],
-            ]);
-        }
+            $sortorder = 0;
 
-        flow_repository::set_current_version($flowid, $versionid);
+            foreach ($graph['nodes'] as $node) {
+                $DB->insert_record('tool_flowboard_node', (object) [
+                    'flowid' => $flowid,
+                    'versionid' => $versionid,
+                    'nodekey' => $node['key'],
+                    'type' => $node['type'],
+                    'config' => json_encode($node['config'] ?? []),
+                    'sortorder' => $sortorder++,
+                ]);
+            }
+
+            foreach ($graph['edges'] ?? [] as $edge) {
+                $DB->insert_record('tool_flowboard_edge', (object) [
+                    'flowid' => $flowid,
+                    'versionid' => $versionid,
+                    'fromnode' => $edge['from'],
+                    'fromport' => $edge['port'] ?? self::PORT_OUT,
+                    'tonode' => $edge['to'],
+                ]);
+            }
+
+            flow_repository::set_current_version($flowid, $versionid);
+
+            // Reconciled inside the same transaction as the version it is
+            // derived from: either the new drawing and the actor it needs both
+            // take effect, or - if the publisher does not hold a capability
+            // the new nodes would need - neither does. A capability check that
+            // could pass while the graph it was checked against never actually
+            // became current would be checking the wrong thing.
+            actor_provisioner::ensure_for_version($flowid, $versionid);
+        } catch (\Throwable $e) {
+            $transaction->rollback($e);
+        }
 
         $transaction->allow_commit();
 

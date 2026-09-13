@@ -16,7 +16,7 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\node_registry;
+use tool_flowboard\local\node\node_registry;
 use tool_flowboard\local\node\action_forum_subscribe;
 use tool_flowboard\local\node\action_forum_unsubscribe;
 use tool_flowboard\local\node\condition_payload;
@@ -29,7 +29,7 @@ use tool_flowboard\local\node\trigger_event;
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
  * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \tool_flowboard\local\node_registry
+ * @covers     \tool_flowboard\local\node\node_registry
  */
 final class node_registry_test extends \advanced_testcase {
     /**

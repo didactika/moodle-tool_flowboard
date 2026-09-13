@@ -1,0 +1,109 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template tool_flowboard/run_history
+
+    One flow's history: every run, and every node inside it.
+
+    Context variables required for this template:
+    * flowname - The flow this history belongs to
+    * indexurl - Back to the flow list
+    * rows - One entry per run
+    * hasrows - Whether there are any
+
+    Example context (json):
+    {
+        "flowname": "Welcome to the forums",
+        "indexurl": "/admin/tool/flowboard/index.php",
+        "rows": [
+            {
+                "id": 1,
+                "when": "5 Mar 2030, 10:00",
+                "status": "ok",
+                "statuslabel": "Succeeded",
+                "isfailed": false,
+                "subjectname": "Ana Lopez",
+                "dryrun": false,
+                "nodes": [
+                    {
+                        "nodekey": "trigger",
+                        "nodetype": "trigger_event",
+                        "status": "ok",
+                        "isfailed": false,
+                        "summary": "eventname=\\core\\event\\course_started",
+                        "error": null
+                    }
+                ]
+            }
+        ],
+        "hasrows": true
+    }
+}}
+<div class="tool-flowboard-history">
+    <p><a href="{{indexurl}}">&laquo; {{#str}} flow:back, tool_flowboard {{/str}}</a></p>
+
+    {{#hasrows}}
+    {{#rows}}
+    <div class="card mb-3">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
+            <div>
+                <strong>{{when}}</strong>
+                <span class="text-muted">&middot; {{subjectname}}</span>
+                {{#dryrun}}<span class="badge badge-info ml-2">{{#str}} history:dryrun, tool_flowboard {{/str}}</span>{{/dryrun}}
+            </div>
+            <span class="badge {{#isfailed}}badge-danger{{/isfailed}}{{^isfailed}}badge-success{{/isfailed}}">
+                {{statuslabel}}
+            </span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <caption class="sr-only">{{#str}} history:nodesheading, tool_flowboard {{/str}}</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">{{#str}} history:node, tool_flowboard {{/str}}</th>
+                        <th scope="col">{{#str}} history:nodestatus, tool_flowboard {{/str}}</th>
+                        <th scope="col">{{#str}} history:nodesummary, tool_flowboard {{/str}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#nodes}}
+                    <tr>
+                        <td>
+                            <code class="small">{{nodekey}}</code>
+                            <div class="text-muted small">{{nodetype}}</div>
+                        </td>
+                        <td>
+                            {{#isfailed}}<span class="text-danger">{{status}}</span>{{/isfailed}}
+                            {{^isfailed}}{{status}}{{/isfailed}}
+                        </td>
+                        <td>
+                            <code class="small">{{summary}}</code>
+                            {{#error}}<div class="text-danger small">{{error}}</div>{{/error}}
+                        </td>
+                    </tr>
+                    {{/nodes}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {{/rows}}
+    {{/hasrows}}
+
+    {{^hasrows}}
+    <div class="alert alert-info">{{#str}} history:none, tool_flowboard {{/str}}</div>
+    {{/hasrows}}
+</div>

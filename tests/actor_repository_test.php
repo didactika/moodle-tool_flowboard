@@ -16,8 +16,8 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\actor_repository;
-use tool_flowboard\local\flow_repository;
+use tool_flowboard\local\actor\actor_repository;
+use tool_flowboard\local\flow\flow_repository;
 
 /**
  * The record of which user and role a flow acts as.
@@ -26,7 +26,7 @@ use tool_flowboard\local\flow_repository;
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
  * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \tool_flowboard\local\actor_repository
+ * @covers     \tool_flowboard\local\actor\actor_repository
  */
 final class actor_repository_test extends \advanced_testcase {
     /** @var \stdClass The flow the actor belongs to. */

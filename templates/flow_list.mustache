@@ -1,0 +1,128 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template tool_flowboard/flow_list
+
+    Every flow, what it is doing, and the links to manage it.
+
+    Context variables required for this template:
+    * rows - One row per flow
+    * hasrows - Whether there are any
+    * newurl - Where "New flow" leads
+    * templates - The "start from a template" buttons
+
+    Example context (json):
+    {
+        "rows": [
+            {
+                "id": 1,
+                "name": "Welcome to the forums",
+                "status": "live",
+                "statuslabel": "Live",
+                "islive": true,
+                "ispaused": false,
+                "isdraft": false,
+                "lastrun": "5 Mar 2030, 10:00",
+                "editurl": "/admin/tool/flowboard/edit.php?id=1",
+                "historyurl": "/admin/tool/flowboard/history.php?id=1",
+                "liveurl": "/admin/tool/flowboard/index.php?id=1&action=live&sesskey=abc",
+                "pauseurl": "/admin/tool/flowboard/index.php?id=1&action=pause&sesskey=abc",
+                "deleteurl": "/admin/tool/flowboard/delete.php?id=1"
+            }
+        ],
+        "hasrows": true,
+        "newurl": "/admin/tool/flowboard/edit.php",
+        "templates": [
+            {
+                "name": "A student starts a course",
+                "description": "Subscribes them to the forums that match a pattern.",
+                "url": "/admin/tool/flowboard/edit.php?template=r1"
+            }
+        ]
+    }
+}}
+<div class="tool-flowboard-flows">
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+        <h3 class="m-0">{{#str}} flow:starthere, tool_flowboard {{/str}}</h3>
+        <a class="btn btn-primary" href="{{newurl}}">{{#str}} flow:new, tool_flowboard {{/str}}</a>
+    </div>
+
+    <div class="row mb-4">
+        {{#templates}}
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <h4 class="card-title h6">
+                        <a class="stretched-link" href="{{url}}">{{name}}</a>
+                    </h4>
+                    <p class="card-text small text-muted flex-grow-1">{{description}}</p>
+                </div>
+            </div>
+        </div>
+        {{/templates}}
+    </div>
+
+    {{#hasrows}}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <caption class="sr-only">{{#str}} flow:heading, tool_flowboard {{/str}}</caption>
+            <thead>
+                <tr>
+                    <th scope="col">{{#str}} flow:name, tool_flowboard {{/str}}</th>
+                    <th scope="col">{{#str}} flow:status, tool_flowboard {{/str}}</th>
+                    <th scope="col">{{#str}} flow:lastrun, tool_flowboard {{/str}}</th>
+                    <th scope="col">{{#str}} flow:actionscolumn, tool_flowboard {{/str}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#rows}}
+                <tr>
+                    <td>
+                        <a href="{{editurl}}">{{name}}</a>
+                    </td>
+                    <td>
+                        {{#islive}}<span class="badge badge-success">{{statuslabel}}</span>{{/islive}}
+                        {{#ispaused}}<span class="badge badge-secondary">{{statuslabel}}</span>{{/ispaused}}
+                        {{#isdraft}}<span class="badge badge-light border">{{statuslabel}}</span>{{/isdraft}}
+                    </td>
+                    <td>{{lastrun}}</td>
+                    <td>
+                        <a href="{{editurl}}">{{#str}} flow:edit, tool_flowboard {{/str}}</a>
+                        &middot;
+                        <a href="{{historyurl}}">{{#str}} flow:history, tool_flowboard {{/str}}</a>
+                        {{^islive}}
+                        &middot;
+                        <a href="{{liveurl}}">{{#str}} flow:golive, tool_flowboard {{/str}}</a>
+                        {{/islive}}
+                        {{#islive}}
+                        &middot;
+                        <a href="{{pauseurl}}">{{#str}} flow:pause, tool_flowboard {{/str}}</a>
+                        {{/islive}}
+                        &middot;
+                        <a href="{{deleteurl}}" class="text-danger">{{#str}} flow:delete, tool_flowboard {{/str}}</a>
+                    </td>
+                </tr>
+                {{/rows}}
+            </tbody>
+        </table>
+    </div>
+    {{/hasrows}}
+
+    {{^hasrows}}
+    <div class="alert alert-info">{{#str}} flow:none, tool_flowboard {{/str}}</div>
+    {{/hasrows}}
+</div>

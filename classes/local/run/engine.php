@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace tool_flowboard\local;
+namespace tool_flowboard\local\run;
 
+use tool_flowboard\local\flow\flow_context;
+use tool_flowboard\local\flow\graph_repository;
+use tool_flowboard\local\node\node_registry;
 use tool_flowboard\local\node\node_result;
 
 /**

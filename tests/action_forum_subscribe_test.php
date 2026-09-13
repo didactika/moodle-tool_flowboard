@@ -17,7 +17,7 @@
 namespace tool_flowboard;
 
 use mod_forum\subscriptions;
-use tool_flowboard\local\flow_context;
+use tool_flowboard\local\flow\flow_context;
 use tool_flowboard\local\node\action_forum_subscribe;
 
 /**

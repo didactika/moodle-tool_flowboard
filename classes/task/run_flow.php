@@ -16,8 +16,10 @@
 
 namespace tool_flowboard\task;
 
-use tool_flowboard\local\engine;
-use tool_flowboard\local\flow_repository;
+use tool_flowboard\local\actor\acting_as;
+use tool_flowboard\local\actor\actor_repository;
+use tool_flowboard\local\run\engine;
+use tool_flowboard\local\flow\flow_repository;
 
 /**
  * Runs one flow against one event, away from the request that caused it.
@@ -26,6 +28,13 @@ use tool_flowboard\local\flow_repository;
  * queued this: the flow may have been paused, republished or deleted, and the
  * site may have pulled the master switch. A task that acted on what was true
  * when it was queued would be acting on the past.
+ *
+ * The flow runs as its own actor, not as whatever user the cron happens to be
+ * running under. That is the only way the attribution D17 promises is true:
+ * `mod_forum\subscriptions::subscribe_user()`, like most of what a node calls,
+ * never takes a "who did this" argument — it reads `$USER` when its own event
+ * fires. A flow with no working actor is refused rather than run as somebody
+ * else by default.
  *
  * @package    tool_flowboard
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
@@ -74,10 +83,24 @@ class run_flow extends \core\task\adhoc_task {
             return;
         }
 
-        $runid = engine::run($flow, (int) $flow->currentversionid, self::as_array($event), [
-            'depth' => (int) ($data['depth'] ?? 0),
-            'triggertype' => 'event',
-        ]);
+        $actor = actor_repository::for_flow($flowid);
+
+        if ($actor === null || $actor->status !== actor_repository::STATUS_ACTIVE) {
+            // A live flow with no working actor is a data problem, not
+            // something to paper over: whatever it does next would be
+            // attributed to whoever the cron happens to run as, which is
+            // exactly what having an actor at all was meant to prevent.
+            mtrace('Flow ' . $flowid . ' has no active actor; nothing was run.');
+
+            return;
+        }
+
+        $runid = acting_as::user((int) $actor->userid, function () use ($flow, $data, $event) {
+            return engine::run($flow, (int) $flow->currentversionid, self::as_array($event), [
+                'depth' => (int) ($data['depth'] ?? 0),
+                'triggertype' => 'event',
+            ]);
+        });
 
         mtrace('Flow ' . $flow->idnumber . ' ran as ' . $runid . '.');
     }

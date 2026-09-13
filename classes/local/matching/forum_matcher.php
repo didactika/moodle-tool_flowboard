@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace tool_flowboard\local;
+namespace tool_flowboard\local\matching;
 
 /**
  * The forums of a course whose name or idnumber matches a pattern.

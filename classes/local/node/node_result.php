@@ -16,7 +16,7 @@
 
 namespace tool_flowboard\local\node;
 
-use tool_flowboard\local\graph_repository;
+use tool_flowboard\local\flow\graph_repository;
 
 /**
  * What a node answered: which way the run leaves it, and what to write down.

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Everything a flow could be built on: the events this site can fire.
+ * Deletes a flow, once its own confirmation page has said yes.
  *
  * @package    tool_flowboard
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
@@ -26,17 +26,35 @@
 require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-use tool_flowboard\local\event\event_catalogue;
-use tool_flowboard\output\event_catalogue_page;
+use tool_flowboard\local\flow\flow_repository;
 
-admin_externalpage_setup('tool_flowboard_events');
+admin_externalpage_setup('tool_flowboard_index');
 
-$component = optional_param('component', '', PARAM_COMPONENT);
-$search = trim(optional_param('search', '', PARAM_TEXT));
+$id = required_param('id', PARAM_INT);
+$confirm = optional_param('confirm', 0, PARAM_BOOL);
+$listurl = new moodle_url('/admin/tool/flowboard/index.php');
 
-$page = new event_catalogue_page(event_catalogue::all(), $component, $search);
+$flow = flow_repository::get($id);
+
+if ($flow === null) {
+    redirect($listurl);
+}
+
+if ($confirm && confirm_sesskey()) {
+    flow_repository::delete($id);
+    redirect(
+        $listurl,
+        get_string('flow:deleted', 'tool_flowboard', format_string($flow->name)),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
+}
 
 echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('events:heading', 'tool_flowboard'));
-echo $OUTPUT->render_from_template('tool_flowboard/event_catalogue', $page->export_for_template($OUTPUT));
+echo $OUTPUT->heading(get_string('flow:delete', 'tool_flowboard'));
+echo $OUTPUT->confirm(
+    get_string('flow:deleteconfirm', 'tool_flowboard', format_string($flow->name)),
+    new moodle_url('/admin/tool/flowboard/delete.php', ['id' => $id, 'confirm' => 1, 'sesskey' => sesskey()]),
+    $listurl
+);
 echo $OUTPUT->footer();

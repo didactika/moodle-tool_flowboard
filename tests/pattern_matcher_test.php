@@ -16,7 +16,7 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\pattern_matcher;
+use tool_flowboard\local\matching\pattern_matcher;
 
 /**
  * The four ways a flow may ask "does this text match what I typed".
@@ -25,7 +25,7 @@ use tool_flowboard\local\pattern_matcher;
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
  * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \tool_flowboard\local\pattern_matcher
+ * @covers     \tool_flowboard\local\matching\pattern_matcher
  */
 final class pattern_matcher_test extends \advanced_testcase {
     /**

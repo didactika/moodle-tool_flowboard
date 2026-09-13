@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Everything a flow could be built on: the events this site can fire.
+ * What a flow has done: every run, and every node inside it.
  *
  * @package    tool_flowboard
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
@@ -26,17 +26,25 @@
 require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-use tool_flowboard\local\event\event_catalogue;
-use tool_flowboard\output\event_catalogue_page;
+use tool_flowboard\local\flow\flow_repository;
+use tool_flowboard\output\run_history_page;
 
-admin_externalpage_setup('tool_flowboard_events');
+admin_externalpage_setup('tool_flowboard_index');
+require_capability('tool/flowboard:viewruns', context_system::instance());
 
-$component = optional_param('component', '', PARAM_COMPONENT);
-$search = trim(optional_param('search', '', PARAM_TEXT));
+$id = required_param('id', PARAM_INT);
+$flow = flow_repository::get($id);
 
-$page = new event_catalogue_page(event_catalogue::all(), $component, $search);
+if ($flow === null) {
+    throw new moodle_exception('flow:error_notfound', 'tool_flowboard');
+}
+
+$PAGE->set_url('/admin/tool/flowboard/history.php', ['id' => $id]);
+$PAGE->set_heading(format_string($flow->name));
+
+$page = new run_history_page($flow);
 
 echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('events:heading', 'tool_flowboard'));
-echo $OUTPUT->render_from_template('tool_flowboard/event_catalogue', $page->export_for_template($OUTPUT));
+echo $OUTPUT->heading(get_string('history:heading', 'tool_flowboard', format_string($flow->name)));
+echo $OUTPUT->render_from_template('tool_flowboard/run_history', $page->export_for_template($OUTPUT));
 echo $OUTPUT->footer();

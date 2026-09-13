@@ -16,8 +16,8 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\engine;
-use tool_flowboard\local\flow_index;
+use tool_flowboard\local\run\engine;
+use tool_flowboard\local\flow\flow_index;
 use tool_flowboard\task\run_flow;
 
 /**

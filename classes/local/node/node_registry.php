@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace tool_flowboard\local;
+namespace tool_flowboard\local\node;
 
 use core_component;
 use tool_flowboard\local\node\base_node;
@@ -110,20 +110,29 @@ final class node_registry {
      *
      * This is what the flow's actor is granted, and nothing beyond it.
      *
-     * @param \stdClass[] $nodes From {@see graph_repository::nodes()}.
+     * Nodes are accepted either as {@see graph_repository::nodes()} returns
+     * them (`\stdClass`, read back from the database) or as a drawing not yet
+     * saved describes them (a plain array, straight from the request) — the
+     * capabilities a graph would need have to be answerable before it is
+     * written anywhere, which is what lets a publisher be checked against
+     * them before a single row is inserted.
+     *
+     * @param array $nodes Each entry a \stdClass or an array.
      * @return string[] Capability names, without repeats.
      */
     public static function capabilities_for(array $nodes): array {
         $capabilities = [];
 
         foreach ($nodes as $node) {
-            $class = self::all()[$node->type] ?? null;
+            $type = is_array($node) ? ($node['type'] ?? '') : ($node->type ?? '');
+            $config = is_array($node) ? ($node['config'] ?? []) : ($node->config ?? []);
+            $class = self::all()[$type] ?? null;
 
             if ($class === null) {
                 continue;
             }
 
-            foreach ($class::required_capabilities($node->config ?? []) as $capability) {
+            foreach ($class::required_capabilities($config) as $capability) {
                 $capabilities[$capability] = true;
             }
         }

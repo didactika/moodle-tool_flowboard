@@ -16,8 +16,8 @@
 
 namespace tool_flowboard\local\node;
 
-use tool_flowboard\local\flow_context;
-use tool_flowboard\local\pattern_matcher;
+use tool_flowboard\local\flow\flow_context;
+use tool_flowboard\local\matching\pattern_matcher;
 
 /**
  * A question about the event itself.

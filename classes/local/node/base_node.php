@@ -16,7 +16,7 @@
 
 namespace tool_flowboard\local\node;
 
-use tool_flowboard\local\flow_context;
+use tool_flowboard\local\flow\flow_context;
 
 /**
  * One kind of node: what it is called, what it needs to be allowed to do, and

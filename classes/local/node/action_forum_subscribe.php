@@ -17,9 +17,9 @@
 namespace tool_flowboard\local\node;
 
 use mod_forum\subscriptions;
-use tool_flowboard\local\flow_context;
-use tool_flowboard\local\forum_matcher;
-use tool_flowboard\local\pattern_matcher;
+use tool_flowboard\local\flow\flow_context;
+use tool_flowboard\local\matching\forum_matcher;
+use tool_flowboard\local\matching\pattern_matcher;
 
 /**
  * Subscribes the run's subject to the forums of a course that match a pattern.

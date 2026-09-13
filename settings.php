@@ -35,6 +35,15 @@ if ($hassiteconfig) {
         new lang_string('pluginname', 'tool_flowboard')
     ));
 
+    // The flow list first: it is what the category is for. Settings, the
+    // event catalogue and the actor list follow it.
+    $ADMIN->add('tool_flowboard', new admin_externalpage(
+        'tool_flowboard_index',
+        new lang_string('flow:heading', 'tool_flowboard'),
+        new moodle_url('/admin/tool/flowboard/index.php'),
+        'tool/flowboard:manage'
+    ));
+
     $settings = new admin_settingpage(
         'tool_flowboard_settings',
         new lang_string('settings:general', 'tool_flowboard')
@@ -79,6 +88,13 @@ if ($hassiteconfig) {
         'tool_flowboard_events',
         new lang_string('events:heading', 'tool_flowboard'),
         new moodle_url('/admin/tool/flowboard/events.php'),
+        'tool/flowboard:manage'
+    ));
+
+    $ADMIN->add('tool_flowboard', new admin_externalpage(
+        'tool_flowboard_actors',
+        new lang_string('actors:heading', 'tool_flowboard'),
+        new moodle_url('/admin/tool/flowboard/actors.php'),
         'tool/flowboard:manage'
     ));
 }

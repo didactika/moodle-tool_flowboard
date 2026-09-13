@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace tool_flowboard\local;
+namespace tool_flowboard\local\flow;
+
+use tool_flowboard\local\node\trigger_event;
 
 /**
  * Which flows are waiting for which event.
@@ -96,7 +98,7 @@ final class flow_index {
                FROM {tool_flowboard_node} n
                JOIN {tool_flowboard_flow} f ON f.currentversionid = n.versionid
               WHERE f.status = :live AND n.type = :triggertype",
-            ['live' => flow_repository::STATUS_LIVE, 'triggertype' => node\trigger_event::TYPE]
+            ['live' => flow_repository::STATUS_LIVE, 'triggertype' => trigger_event::TYPE]
         );
         $index = [];
 

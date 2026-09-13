@@ -16,10 +16,10 @@
 
 namespace tool_flowboard;
 
-use tool_flowboard\local\engine;
-use tool_flowboard\local\flow_repository;
-use tool_flowboard\local\graph_repository;
-use tool_flowboard\local\run_repository;
+use tool_flowboard\local\run\engine;
+use tool_flowboard\local\flow\flow_repository;
+use tool_flowboard\local\flow\graph_repository;
+use tool_flowboard\local\run\run_repository;
 
 /**
  * Walking a flow.
@@ -28,7 +28,7 @@ use tool_flowboard\local\run_repository;
  * @author     Hector Arrechea <hectorlazaroarrechea@gmail.com>
  * @copyright  2026 Didactika.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \tool_flowboard\local\engine
+ * @covers     \tool_flowboard\local\run\engine
  */
 final class engine_test extends \advanced_testcase {
     /** @var \stdClass The student the events are about. */
