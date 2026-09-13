@@ -1,0 +1,282 @@
+name: Moodle Plugin CI
+
+# Runs the moodle-plugin-ci checks (the same tests the Moodle.org plugins
+# database runs) so regressions are caught automatically.
+#
+# Branch model (see README.md): `main` is the development branch. This
+# template also ships one MOODLE_XXX_STABLE branch per Moodle version listed
+# in branches/ at the time it was generated -- delete whichever ones this
+# plugin does not actually support, do not cut them from scratch. Both kinds
+# of branch are protected, and both can publish a release (release.yml
+# triggers on either), so CI runs on pushes and pull requests targeting any
+# of them.
+on:
+  push:
+    branches:
+      - main
+      - 'MOODLE_*_STABLE'
+  pull_request:
+    branches:
+      - main
+      - 'MOODLE_*_STABLE'
+
+jobs:
+  setup:
+    # Turns $plugin->supported (version.php) into the test matrix consumed by
+    # the `test` job below, so that array is the ONLY place in this repo that
+    # declares which Moodle versions this plugin is tested against. See the
+    # comment inside the step for the one other fact this needs -- a
+    # Moodle-version -> PHP-version table -- and why it lives here and
+    # nowhere else.
+    name: Build test matrix from version.php
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      - name: Build test matrix from version.php
+        id: build
+        run: |
+          set -euo pipefail
+
+          # ===================================================================
+          # MOODLE_PHP_TABLE is the single place that maps a Moodle version
+          # (the integer codes used by $plugin->supported / $plugin->requires,
+          # e.g. 405 = 4.5, 502 = 5.2) to the PHP versions that Moodle version
+          # itself supports. This is a fact about Moodle, not about this
+          # plugin, so it only changes when a new Moodle version ships
+          # (roughly twice a year) -- unlike the list of Moodle versions THIS
+          # plugin supports, which lives solely in version.php (never here).
+          #
+          # Add a row here BEFORE adding the matching version number to
+          # $plugin->supported. If a supported version has no row below, the
+          # step fails loudly instead of silently testing the wrong (or no)
+          # PHP versions for it.
+          #
+          # Verified against https://moodledev.io/general/development/policies/php
+          # and the individual https://moodledev.io/general/releases/<x.y>
+          # pages on 2026-08-09.
+          # ===================================================================
+          MOODLE_PHP_TABLE='{
+            "400": ["7.4", "8.0"],
+            "401": ["7.4", "8.0", "8.1"],
+            "402": ["8.0", "8.1", "8.2"],
+            "403": ["8.0", "8.1", "8.2"],
+            "404": ["8.1", "8.2", "8.3"],
+            "405": ["8.1", "8.2", "8.3"],
+            "500": ["8.2", "8.3", "8.4"],
+            "501": ["8.2", "8.3", "8.4"],
+            "502": ["8.3", "8.4"],
+            "503": ["8.3", "8.4"]
+          }'
+          # VERIFY: the 400-404 rows were transcribed from the summary table
+          # on the policy page above, not each version's own release notes
+          # (unlike 405 and 500-503, which were each checked against their
+          # individual release page). Double-check the row you rely on if
+          # this plugin still supports a pre-4.5 Moodle.
+
+          # NOTE ON SEMANTICS: Moodle defines $plugin->supported as an
+          # inclusive RANGE, [lowest, highest] -- so [405, 502] means "4.5
+          # through 5.2", which includes 5.0 and 5.1, not just the two
+          # endpoints. What this loop builds is a matrix over the values
+          # actually written there, which for a well-formed two-element range
+          # means the floor and the ceiling get tested and the versions in
+          # between do not. That is a deliberate cost trade-off and the same
+          # one moodle-local_servicemanager makes by hand, but it is a choice,
+          # not what `supported` means: a regression that only affects 5.1
+          # would not be caught. To test the whole range, list the intermediate
+          # versions explicitly in MOODLE_PHP_TABLE and expand them here.
+          supported_raw=$(grep -oP '\$plugin->supported\s*=\s*\[\K[^\]]+' version.php || true)
+          if [ -z "$supported_raw" ]; then
+            echo "::error::Could not find \$plugin->supported = [...] in version.php."
+            exit 1
+          fi
+
+          # Named "entries", not "include": jq treats `include` as reserved
+          # (its own module-loading directive), and rejects it not just as a
+          # bareword object key but as a --arg/--argjson variable name too --
+          # confirmed against jqlang/jq#1619, `jq -n --arg end 1 '{end:$end}'`
+          # fails the same way for the same reason. Quoting the key alone
+          # ("include": ...) does not fix it: the --argjson name is a second,
+          # independent place the same reserved word can't appear. The JSON
+          # output still needs a field literally called "include" -- that's
+          # GitHub Actions' own matrix schema, not jq's, and unaffected by
+          # this rename.
+          entries='[]'
+          IFS=',' read -ra versions <<< "$supported_raw"
+          for raw in "${versions[@]}"; do
+            v=$(echo "$raw" | tr -d '[:space:]')
+            [ -z "$v" ] && continue
+
+            # The trailing `tr -d '\r'` guards against a stray carriage
+            # return ending up in a PHP version string (e.g. from a tool in
+            # the pipeline emitting CRLF) and silently corrupting the
+            # generated branch/PHP values downstream.
+            phps=$(echo "$MOODLE_PHP_TABLE" | jq -r --arg v "$v" '.[$v] // empty | .[]' | tr -d '\r')
+            if [ -z "$phps" ]; then
+              echo "::error::Moodle version $v is listed in \$plugin->supported but MOODLE_PHP_TABLE above has no entry for it. Add one (see https://moodledev.io/general/development/policies/php) before this can run."
+              exit 1
+            fi
+
+            while IFS= read -r php; do
+              for db in pgsql mariadb; do
+                entries=$(echo "$entries" | jq -c \
+                  --arg php "$php" --arg branch "MOODLE_${v}_STABLE" --arg db "$db" \
+                  '. + [{"php": $php, "moodle-branch": $branch, "database": $db}]')
+              done
+            done <<< "$phps"
+          done
+
+          matrix=$(jq -c -n --argjson entries "$entries" '{"include": $entries}')
+          echo "Generated test matrix:"
+          echo "$matrix" | jq .
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: setup
+    runs-on: ubuntu-22.04
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
+
+      mariadb:
+        image: mariadb:10
+        env:
+          MYSQL_USER: 'root'
+          MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+          MYSQL_CHARACTER_SET_SERVER: "utf8mb4"
+          MYSQL_COLLATION_SERVER: "utf8mb4_unicode_ci"
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval 10s --health-timeout 5s --health-retries 3
+
+    strategy:
+      fail-fast: false
+      # Populated entirely by the `setup` job above. Do not hand-edit this or
+      # add an `exclude:` list here -- change version.php (to add/drop a
+      # supported Moodle version) and/or MOODLE_PHP_TABLE in the `setup` job
+      # (to fix which PHP versions a Moodle version tests against) instead.
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+        with:
+          path: plugin
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: ${{ matrix.extensions }}
+          ini-values: max_input_vars=5000
+          # If you are not using code coverage, keep "none". Otherwise, use "pcov" (Moodle 3.10 and up) or "xdebug".
+          # If you try to use code coverage with "none", it will fallback to phpdbg (which has known problems).
+          coverage: none
+
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+          echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
+
+      - name: Install moodle-plugin-ci
+        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
+        env:
+          DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle-branch }}
+          # Uncomment this to run Behat tests using the Moodle App.
+          # MOODLE_APP: 'true'
+
+      - name: PHP Lint
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phplint
+
+      - name: PHP Mess Detector
+        continue-on-error: true # This step will show errors but will not fail
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpmd
+
+      - name: Moodle Code Checker
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpcs --max-warnings 0
+
+      - name: Moodle PHPDoc Checker
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpdoc --max-warnings 0
+
+      - name: Validating
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci validate
+
+      - name: Check upgrade savepoints
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci savepoints
+
+      - name: Mustache Lint
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci mustache
+
+      - name: Grunt
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci grunt --max-lint-warnings 0
+
+      - name: PHPUnit tests
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpunit --fail-on-warning
+
+      - name: Behat features
+        id: behat
+        if: ${{ !cancelled() }}
+        # Example (delete if it does not apply to your plugin): if your SCSS
+        # still uses Bootstrap-4-era utility classes (mr-*, badge-*,
+        # text-right, ...) that Moodle 5.x renders through its Bootstrap 5
+        # compat shim but reports as deprecated, you may need to omit
+        # --scss-deprecations here until you migrate to Bootstrap 5 classes.
+        run: moodle-plugin-ci behat --profile chrome
+
+      - name: Upload Behat Faildump
+        if: ${{ failure() && steps.behat.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Behat Faildump (${{ join(matrix.*, ', ') }})
+          path: ${{ github.workspace }}/moodledata/behat_dump
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Mark cancelled jobs as failed.
+        if: ${{ cancelled() }}
+        run: exit 1
+
+  ci-complete:
+    # Single, stable status check to mark as "required" in branch protection
+    # on `main` and every `MOODLE_*_STABLE` branch. The individual matrix job
+    # names (e.g. "test (8.3, MOODLE_405_STABLE, pgsql)") change whenever the
+    # matrix changes, which makes them brittle to require directly; this
+    # aggregator name never changes. It succeeds only when every matrix
+    # combination in `test` succeeded. Do not rename this job's `name:` --
+    # branch protection targets it by this exact string.
+    name: CI complete
+    if: always()
+    needs: test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Verify all matrix jobs passed
+        run: |
+          result="${{ needs.test.result }}"
+          echo "Test matrix result: $result"
+          if [ "$result" != "success" ]; then
+            echo "::error::One or more CI matrix jobs did not succeed."
+            exit 1
+          fi
