@@ -1,0 +1,33 @@
+version: 2
+
+# This file is NOT inherited from the organization's .github repo -- unlike
+# SECURITY.md/CONTRIBUTING.md/CODE_OF_CONDUCT.md, dependabot.yml only applies
+# from within the repo that owns it, which is why it has to ship in this
+# template instead of living once in .github.
+updates:
+  # No production/development split exists for this ecosystem -- every
+  # action bump is CI-only tooling, so all of them are grouped together into
+  # one weekly PR instead of one PR per action.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Most Moodle plugins have no composer.json of their own: moodle-plugin-ci
+  # installs and manages its own tooling (phpcs, phpmd, ...) separately, in
+  # its own throwaway `ci/` checkout created during CI, not from anything
+  # declared in this repository.
+  #
+  # Uncomment the block below only if this plugin adds a real composer.json
+  # at the repo root (for example to vendor a genuine runtime PHP
+  # dependency). Leaving it enabled with no composer.json present will show
+  # up as a configuration error in the repo's Insights -> Dependency graph ->
+  # Dependabot tab, not as a failing workflow.
+  # - package-ecosystem: "composer"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
